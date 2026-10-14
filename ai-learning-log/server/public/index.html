@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 학습 기록</title>
+<style>
+  :root { --bg:#f7f7f5; --card:#fff; --text:#1c1c1a; --muted:#6b6b66; --line:#e4e4df; --accent:#4f46e5; --tag:#eef0ff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161615; --card:#1f1f1d; --text:#ececE8; --muted:#9a9a93; --line:#323230; --accent:#8b86ff; --tag:#2a2a45; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.6 -apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: .9rem; margin-bottom: 16px; }
+  .notice { background: var(--tag); border:1px solid var(--line); padding:10px 14px; border-radius:8px; margin-bottom:16px; font-size:.9rem; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  input[type=search] { flex:1; min-width:200px; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); font:inherit; }
+  button { padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); font:inherit; cursor:pointer; }
+  button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .tags { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
+  .tag { background:var(--tag); color:var(--accent); border-radius:99px; padding:1px 10px; font-size:.8rem; cursor:pointer; border:0; }
+  .tag.on { background:var(--accent); color:#fff; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:12px; }
+  .card h2 { font-size:1.05rem; margin:0 0 2px; }
+  .card h2 a { color:inherit; text-decoration:none; }
+  .card h2 a:hover { color:var(--accent); }
+  .meta { color:var(--muted); font-size:.82rem; }
+  .card h3 { font-size:.85rem; margin:12px 0 4px; color:var(--muted); }
+  .card ul { margin:0; padding-left:20px; }
+  .status { font-size:.85rem; color:var(--muted); margin-top:8px; }
+  .related { font-size:.85rem; margin-top:10px; }
+  .related a { color:var(--accent); cursor:pointer; margin-right:10px; }
+  dl { margin:0; } dt { font-weight:600; margin-top:12px; } dd { margin:0; color:var(--muted); }
+  dd .src a { color:var(--accent); cursor:pointer; margin-right:8px; font-size:.85rem; }
+  .empty { text-align:center; color:var(--muted); padding:48px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>AI 학습 기록</h1>
+  <div class="sub" id="stats"></div>
+  <div id="notice"></div>
+  <div class="bar">
+    <input type="search" id="q" placeholder="용어, 채널, 주제로 검색 (예: RAG, 프롬프트, 에이전트)">
+    <button id="tab-videos" class="on">영상 노트</button>
+    <button id="tab-glossary">용어집</button>
+  </div>
+  <div class="tags" id="tags"></div>
+  <div id="list"></div>
+</main>
+<script>
+let data = { videos: [], skipped: 0, analysisEnabled: true };
+let view = 'videos', activeTag = null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const done = () => data.videos.filter((v) => v.status === 'done' && v.isAiRelated);
+const fmtDate = (s) => new Date(s).toLocaleDateString('ko-KR');
+
+async function load() {
+  data = await (await fetch('/api/videos')).json();
+  render();
+}
+
+function matches(v, q) {
+  if (!q) return true;
+  const hay = [v.title, v.channel, v.summary, ...(v.tags || []), ...(v.terms || []).map((t) => t.term + t.definition), ...(v.usage || [])].join(' ').toLowerCase();
+  return q.toLowerCase().split(/\s+/).every((w) => hay.includes(w));
+}
+
+// 태그/용어를 공유하는 영상끼리 "연관 영상"으로 연결
+function related(v) {
+  const keys = new Set([...(v.tags || []), ...(v.terms || []).map((t) => t.term)].map((s) => s.toLowerCase()));
+  return done()
+    .filter((o) => o.id !== v.id)
+    .map((o) => {
+      const shared = [...(o.tags || []), ...(o.terms || []).map((t) => t.term)].filter((k) => keys.has(k.toLowerCase()));
+      return { o, shared: [...new Set(shared)] };
+    })
+    .filter((r) => r.shared.length)
+    .sort((a, b) => b.shared.length - a.shared.length)
+    .slice(0, 4);
+}
+
+function renderNotice() {
+  const pending = data.videos.filter((v) => v.status !== 'done');
+  let html = '';
+  if (!data.analysisEnabled) html += '<div class="notice">⚠ ANTHROPIC_API_KEY 가 설정되지 않아 영상이 저장만 되고 있습니다. <code>.env</code> 설정 후 서버를 재시작하세요.</div>';
+  const err = pending.filter((v) => v.status === 'error').length;
+  if (err) html += `<div class="notice">분석에 실패한 영상 ${err}개 <button onclick="reanalyze()">다시 분석</button></div>`;
+  $('notice').innerHTML = html;
+}
+
+function renderTags() {
+  const count = {};
+  done().forEach((v) => (v.tags || []).forEach((t) => (count[t] = (count[t] || 0) + 1)));
+  const top = Object.entries(count).sort((a, b) => b[1] - a[1]).slice(0, 20);
+  $('tags').innerHTML = top.map(([t, n]) => `<button class="tag ${t === activeTag ? 'on' : ''}" data-tag="${esc(t)}">${esc(t)} ${n}</button>`).join('');
+}
+
+function renderVideos(q) {
+  const items = data.videos.filter((v) => matches(v, q) && (!activeTag || (v.tags || []).includes(activeTag)));
+  if (!items.length) return '<div class="empty">아직 정리된 영상이 없습니다.<br>유튜브에서 AI 영상을 30초 이상 보면 자동으로 쌓입니다.</div>';
+  return items.map((v) => {
+    const head = `<h2><a href="https://www.youtube.com/watch?v=${v.id}" target="_blank" rel="noopener">${esc(v.title)}</a></h2>
+      <div class="meta">${esc(v.channel)} · ${fmtDate(v.watchedAt)}${v.hasTranscript ? '' : ' · 자막 없음(제목/설명 기반)'}</div>`;
+    if (v.status !== 'done') {
+      const label = { pending: '분석 중…', error: '분석 실패: ' + (v.error || ''), no_key: 'API 키가 없어 분석 대기 중' }[v.status] || v.status;
+      return `<div class="card">${head}<div class="status">${esc(label)}</div></div>`;
+    }
+    const rel = related(v);
+    return `<div class="card">${head}
+      <div class="tags">${(v.tags || []).map((t) => `<button class="tag" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+      <p>${esc(v.summary)}</p>
+      ${v.terms?.length ? `<h3>용어</h3><ul>${v.terms.map((t) => `<li><b>${esc(t.term)}</b> — ${esc(t.definition)}</li>`).join('')}</ul>` : ''}
+      ${v.usage?.length ? `<h3>활용법</h3><ul>${v.usage.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>` : ''}
+      ${rel.length ? `<div class="related">🔗 연관 영상: ${rel.map((r) => `<a data-open="${r.o.id}" title="공통: ${esc(r.shared.join(', '))}">${esc(r.o.title.slice(0, 40))}</a>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderGlossary(q) {
+  const map = new Map();
+  done().forEach((v) => (v.terms || []).forEach((t) => {
+    const k = t.term.toLowerCase();
+    if (!map.has(k)) map.set(k, { term: t.term, definition: t.definition, sources: [] });
+    map.get(k).sources.push(v);
+  }));
+  const items = [...map.values()]
+    .filter((e) => !q || (e.term + e.definition).toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => a.term.localeCompare(b.term, 'ko'));
+  if (!items.length) return '<div class="empty">아직 정리된 용어가 없습니다.</div>';
+  return `<div class="card"><dl>${items.map((e) => `<dt>${esc(e.term)}</dt>
+    <dd>${esc(e.definition)}<div class="src">출처: ${e.sources.map((s) => `<a href="https://www.youtube.com/watch?v=${s.id}" target="_blank" rel="noopener">${esc(s.channel)} · ${esc(s.title.slice(0, 30))}</a>`).join('')}</div></dd>`).join('')}</dl></div>`;
+}
+
+function render() {
+  const q = $('q').value.trim();
+  $('stats').textContent = `AI 학습 영상 ${done().length}개 · AI 무관으로 제외 ${data.skipped}개`;
+  renderNotice();
+  renderTags();
+  $('list').innerHTML = view === 'videos' ? renderVideos(q) : renderGlossary(q);
+}
+
+async function reanalyze() {
+  await fetch('/api/reanalyze', { method: 'POST' });
+  setTimeout(load, 1500);
+}
+
+$('q').addEventListener('input', render);
+$('tab-videos').onclick = () => { view = 'videos'; $('tab-videos').classList.add('on'); $('tab-glossary').classList.remove('on'); render(); };
+$('tab-glossary').onclick = () => { view = 'glossary'; $('tab-glossary').classList.add('on'); $('tab-videos').classList.remove('on'); render(); };
+document.body.addEventListener('click', (e) => {
+  const tag = e.target.closest('[data-tag]');
+  if (tag) { activeTag = activeTag === tag.dataset.tag ? null : tag.dataset.tag; view = 'videos'; $('tab-videos').click(); return; }
+  const open = e.target.closest('[data-open]');
+  if (open) { $('q').value = ''; activeTag = null; const v = data.videos.find((x) => x.id === open.dataset.open); $('q').value = v.title; render(); }
+});
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

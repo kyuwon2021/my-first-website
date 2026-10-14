@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "AI 학습 기록",
+  "version": "0.1.0",
+  "description": "유튜브에서 본 영상을 자동으로 기록하고, AI 관련 영상만 학습 노트로 정리합니다.",
+  "host_permissions": ["https://www.youtube.com/*", "http://localhost:3000/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
