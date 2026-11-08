@@ -219,6 +219,22 @@
   #alarm .nums { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 18px; }
   #alarm .btn { color: #3a1a00; background: #fff; box-shadow: 0 4px 0 rgba(0,0,0,.2); }
 
+  /* 직접 입력 키패드 (마이크를 못 쓸 때) */
+  #keypad { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 20px;
+    background: radial-gradient(circle at 50% 40%, #1b1236 0, #000 70%); }
+  #keypad.show { display: flex; }
+  #keypad .k-title { font-size: 20px; color: #cbbcff; text-align: center; }
+  #keypad .k-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; width: min(420px, 100%); }
+  #keypad .k-grid button { aspect-ratio: 1; border-radius: 50%; border: 1px solid #3a2f66; background: #120d24; color: #9d8fd6; font: 700 15px system-ui, sans-serif; }
+  #keypad .k-grid button.on { background: var(--gold); color: #3a2400; border-color: var(--gold); }
+  #keypad .k-picked { min-height: 38px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+  /* 확인 창 */
+  #ask { position: fixed; inset: 0; z-index: 95; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.6); }
+  #ask.show { display: flex; }
+  #ask .box { width: min(340px, 100%); background: #231a46; border: 1px solid var(--panel-line); border-radius: 22px; padding: 22px; text-align: center; animation: popIn .25s ease-out; }
+  #ask p { margin: 0 0 16px; font-size: 19px; }
+
   /* 공통 효과 */
   #fx { position: fixed; inset: 0; pointer-events: none; z-index: 80; }
   #flash { position: fixed; inset: 0; pointer-events: none; z-index: 70; opacity: 0; }
@@ -377,6 +393,15 @@
     <div class="rec-nums" id="recNums"></div>
     <div class="rec-stop">말을 멈추면 자동 저장 · 화면을 톡 치면 바로 저장</div>
   </div>
+  <div id="keypad">
+    <div class="k-title">🌙 기억나는 번호를 눌러주세요</div>
+    <div class="k-picked" id="kPicked"></div>
+    <div class="k-grid" id="kGrid"></div>
+    <div class="row center">
+      <button class="btn gold" id="kSave">💾 저장</button>
+      <button class="btn" id="kCancel">취소</button>
+    </div>
+  </div>
   <div id="alarm">
     <div class="sunball">☀️</div>
     <h2>좋은 아침이에요!</h2>
@@ -392,6 +417,7 @@
 <div id="flash"></div>
 <canvas id="fx"></canvas>
 <div id="toast"></div>
+<div id="ask"><div class="box"><p id="askMsg"></p><div class="row center"><button class="btn pink" id="askYes">네</button><button class="btn" id="askNo">아니요</button></div></div></div>
 
 <script>
 (() => {
@@ -413,6 +439,16 @@
     const t = $('toast'); t.textContent = msg; t.classList.add('show');
     clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms);
   }
+
+  // 페이지 안 확인 창 (confirm()이 막힌 환경에서도 동작)
+  function ask(msg) {
+    return new Promise((res) => {
+      $('askMsg').textContent = msg; $('ask').classList.add('show');
+      const done = (v) => { $('ask').classList.remove('show'); Sound.click(); res(v); };
+      $('askYes').onclick = () => done(true); $('askNo').onclick = () => done(false);
+    });
+  }
+  const inViewer = () => typeof window.claude?.use === 'function';
 
   // 별 하늘
   function makeStars(el, n) {
@@ -748,8 +784,9 @@
 
     async start() {
       Sound.init(); saveSettings();
+      this.noMic = false;
       try { await Rec.ensureStream(); }
-      catch (e) { toast('🎙️ 마이크 권한을 허용해야 꿈 모드를 쓸 수 있어요', 4000); return; }
+      catch (e) { this.noMic = true; toast('🎙️ 마이크를 쓸 수 없어서 꾹 누르면 번호 키패드가 열려요', 4500); }
       if (settings.shake && window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
         try { await DeviceMotionEvent.requestPermission(); } catch (e) { /* 거부 */ }
       }
@@ -771,7 +808,7 @@
       this.on = false; clearInterval(this.tick); this.stopAlarm();
       removeEventListener('devicemotion', this.onMotion);
       try { await this.wake?.release(); } catch (e) { /* 무시 */ }
-      this.wake = null; Rec.release();
+      this.wake = null; Rec.release(); $('keypad').classList.remove('show');
       try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) { /* 무시 */ }
       $('sleep').classList.remove('show'); Machine.pause = false;
       await renderMemos(); await checkMorning(true);
@@ -792,6 +829,7 @@
     },
     async trigger() {
       if (!this.on || Rec.active || this.recBusy || $('alarm').classList.contains('show')) return;
+      if (this.noMic) { if (!$('keypad').classList.contains('show')) this.openKeypad(); return; }
       this.recBusy = true;
       navigator.vibrate?.([60, 50, 60]);
       Sound.sleepOn();
@@ -812,11 +850,38 @@
       };
       anim();
     },
+    openKeypad() {
+      navigator.vibrate?.([60, 50, 60]); Sound.sleepOn();
+      $('saved').classList.remove('show');
+      const picked = [], kg = $('kGrid');
+      const paint = () => { $('kPicked').innerHTML = picked.map((n) => ballHTML(n, 'sm dream drop')).join(''); };
+      kg.innerHTML = '';
+      for (let n = 1; n <= 45; n++) {
+        const b = document.createElement('button'); b.textContent = n;
+        b.onclick = () => {
+          const i = picked.indexOf(n);
+          if (i >= 0) picked.splice(i, 1); else picked.push(n);
+          b.classList.toggle('on', i < 0); Sound.tone(500 + n * 10, .08, { vol: .04 }); paint();
+        };
+        kg.appendChild(b);
+      }
+      paint(); $('keypad').classList.add('show');
+      $('kCancel').onclick = () => $('keypad').classList.remove('show');
+      $('kSave').onclick = async () => {
+        $('keypad').classList.remove('show');
+        if (!picked.length) return;
+        const memo = { id: Date.now(), ts: Date.now(), audio: null, transcript: '(키패드로 직접 입력)', numbers: picked.slice(), seen: false, dur: 0 };
+        await DB.put(memo); this.afterSave(memo);
+      };
+    },
     async stopRec() {
       if (!Rec.active) return;
       const memo = await Rec.stop();
       $('rec').classList.remove('show');
       if (!memo) return;
+      this.afterSave(memo);
+    },
+    afterSave(memo) {
       this.session.push(memo);
       navigator.vibrate?.(120); Sound.sleepSaved();
       const sv = $('saved');
@@ -865,7 +930,7 @@
   sleepEl.addEventListener('contextmenu', (e) => e.preventDefault());
 
   $('sleepBtn').onclick = () => Sleep.start();
-  $('wakeBtn').onclick = () => { if (confirm('꿈 모드를 끌까요?')) Sleep.stop(); };
+  $('wakeBtn').onclick = async () => { if (await ask('꿈 모드를 끌까요?')) Sleep.stop(); };
   $('alarmOk').onclick = async () => { Sound.click(); await Sleep.stop(); $('morning').scrollIntoView({ behavior: 'smooth' }); };
   $('snooze').onclick = () => { Sleep.stopAlarm(); Sleep.alarmAt = Date.now() + 5 * 60000; Sleep.alarmFired = false; $('sAlarm').textContent = '⏰ 5분 뒤 다시 깨울게요'; };
 
@@ -890,6 +955,7 @@
 
   $('icsBtn').onclick = () => {
     saveSettings(); Sound.click();
+    if (inViewer()) { toast('📅 이 미리보기에서는 파일을 받을 수 없어요. PC에서 연 버전이나 GitHub Pages에서 눌러주세요', 4500); return; }
     const [h, m] = settings.alarmTime.split(':');
     const now = new Date(), stamp = now.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
     const t = new Date(); t.setDate(t.getDate() + 1);
@@ -1226,7 +1292,7 @@
       toast(dreamHits ? `😭 꿈 번호는 ${dreamHits}개 맞았는데… 다음엔 꿈 모드를 켜고 자요!` : '💥 이번 주는 꽝… 다음 주를 노려봐요!', 5000);
     }
   };
-  $('clearBox').onclick = () => { if (box.length && confirm('번호함을 모두 비울까요?')) { box = []; store.set('dl-box', box); renderBox(); Sound.boop(false); } };
+  $('clearBox').onclick = async () => { if (box.length && await ask('번호함을 모두 비울까요?')) { box = []; store.set('dl-box', box); renderBox(); Sound.boop(false); } };
   renderBox();
 
   /* =====================================================
@@ -1254,7 +1320,7 @@
         <div class="nums">${m.numbers.map((n) => ballHTML(n, 'sm dream')).join('')}</div>
         <input class="ninput" placeholder="번호 수정 (예: 7, 23, 41)" value="${m.numbers.join(', ')}">
         <button class="btn small gold" data-act="use">🎰 이 번호로 뽑기</button>`;
-      d.querySelector('[data-act=del]').onclick = async () => { if (confirm('이 꿈 기록을 지울까요?')) { await DB.del(m.id); renderMemos(); checkMorning(); } };
+      d.querySelector('[data-act=del]').onclick = async () => { if (await ask('이 꿈 기록을 지울까요?')) { await DB.del(m.id); renderMemos(); checkMorning(); } };
       const inp = d.querySelector('.ninput');
       inp.onchange = async () => {
         m.numbers = extractNumbers(inp.value); await DB.put(m);
