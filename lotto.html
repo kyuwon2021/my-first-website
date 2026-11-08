@@ -1062,7 +1062,7 @@
    *  추첨기 (공 튀는 물리 애니메이션)
    * ===================================================== */
   const Machine = {
-    cv: $('machine'), ctx: null, W: 0, R: 0, br: 0, cx: 0, cy: 0, balls: [], mixing: false, pause: false, until: 0, raf: 0, exiting: null,
+    cv: $('machine'), ctx: null, W: 0, R: 0, br: 0, cx: 0, cy: 0, balls: [], mixing: false, pause: false, until: 0, raf: 0, exiting: null, rot: 0,
     resize() {
       const dpr = devicePixelRatio || 1, W = this.cv.clientWidth || 300;
       const scale = this.W ? W / this.W : 1;
@@ -1084,7 +1084,17 @@
       let last = performance.now();
       const step = (now) => {
         const dt = Math.min(.033, (now - last) / 1000); last = now;
-        if (!this.pause) { this.physics(dt / 2); this.physics(dt / 2); this.draw(now); }
+        if (!this.pause) {
+          if (this.mixing) {
+            this.rot += dt * 5;
+            // 바닥 쪽에서 공기 분사: 아래쪽 공 몇 개를 위로 튕긴다
+            const low = this.balls.filter((b) => !b.out && b.y > this.cy + this.R * .2);
+            for (let i = 0; i < 3 && low.length; i++) {
+              if (Math.random() < .5) { const b = low[Math.floor(Math.random() * low.length)]; b.vy = -this.R * (3.5 + Math.random() * 3); b.vx += (Math.random() - .5) * this.R * 4; }
+            }
+          }
+          this.physics(dt / 3); this.physics(dt / 3); this.physics(dt / 3); this.draw(now);
+        }
         if (this.mixing || this.exiting || now < this.until) this.raf = requestAnimationFrame(step); else this.raf = 0;
       };
       this.raf = requestAnimationFrame(step);
@@ -1094,10 +1104,13 @@
       for (const b of live) {
         b.vy += G * dt;
         if (this.mixing) {
-          const depth = (b.y - (cy - R)) / (2 * R); // 아래일수록 바람 강하게
-          b.vy -= R * 22 * dt * depth * (.6 + Math.random());
-          b.vx += (Math.random() - .5) * R * 30 * dt + (b.x < cx ? 1 : -1) * R * 2 * dt;
+          // 회전하는 통: 벽을 따라 공을 끌어올리는 접선 방향 힘 + 난류
+          const dx = b.x - cx, dy = b.y - cy, d = Math.hypot(dx, dy) || 1, tx = -dy / d, ty = dx / d;
+          const vt = b.vx * tx + b.vy * ty, target = R * 4.2 * (d / R);
+          b.vx += (target - vt) * tx * 3.5 * dt; b.vy += (target - vt) * ty * 3.5 * dt;
+          b.vx += (Math.random() - .5) * R * 60 * dt; b.vy += (Math.random() - .5) * R * 60 * dt;
         }
+        b.spin = (b.spin || 0) + (b.vx - b.vy * .3) * dt / br * .5;
         const sp = Math.hypot(b.vx, b.vy), max = R * 7; if (sp > max) { b.vx *= max / sp; b.vy *= max / sp; }
         b.x += b.vx * dt; b.y += b.vy * dt;
         const dx = b.x - cx, dy = b.y - cy, d = Math.hypot(dx, dy);
@@ -1123,8 +1136,9 @@
       const g = c.createRadialGradient(x - r * .35, y - r * .4, 0, x - r * .35, y - r * .4, r * 1.1);
       g.addColorStop(0, 'rgba(255,255,255,.85)'); g.addColorStop(.35, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,.25)');
       c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+      c.save(); c.translate(x, y); c.rotate(b.spin || 0);
       c.fillStyle = '#fff'; c.font = `700 ${r * 1.05}px system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(b.n, x, y + 1);
+      c.fillText(b.n, 0, 1); c.restore();
     },
     draw(now = performance.now()) {
       const c = this.ctx, { cx, cy, R, br, W } = this; if (!c) return;
@@ -1136,6 +1150,14 @@
       const glass = c.createRadialGradient(cx - R * .3, cy - R * .4, R * .1, cx, cy, R);
       glass.addColorStop(0, 'rgba(255,255,255,.18)'); glass.addColorStop(1, 'rgba(143,107,255,.12)');
       c.fillStyle = glass; c.beginPath(); c.arc(cx, cy, R, 0, 7); c.fill();
+      // 통 안의 회전 날개
+      c.save(); c.translate(cx, cy); c.rotate(this.rot || 0);
+      c.strokeStyle = this.mixing ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.1)'; c.lineWidth = 3; c.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        c.rotate(Math.PI * 2 / 3); c.beginPath(); c.moveTo(R * .12, 0); c.quadraticCurveTo(R * .55, R * .25, R * .92, R * .05); c.stroke();
+      }
+      c.fillStyle = 'rgba(255,255,255,.25)'; c.beginPath(); c.arc(0, 0, R * .07, 0, 7); c.fill();
+      c.restore();
       for (const b of this.balls) if (!b.out) this.drawBall(b, b.x, b.y, br);
       if (this.exiting) { const e = this.exiting; this.drawBall(e.b, e.x, e.y, br * 1.15); }
       c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 4; c.beginPath(); c.arc(cx, cy, R, 0, 7); c.stroke();
