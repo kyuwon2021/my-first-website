@@ -144,6 +144,8 @@
   .calc { display: grid; gap: 8px; padding-top: 4px; }
   .calc-note { color: var(--faint); font-size: var(--step--1); }
   .calc-balls { display: flex; flex-wrap: wrap; gap: 8px; }
+  .calc-ask { display: grid; gap: 12px; margin-top: 4px; padding: 16px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+  .calc-ask p { color: var(--ink); }
   textarea { width: 100%; min-height: 72px; resize: vertical; border-radius: 8px; border: 1px solid var(--line); background: rgba(0,0,0,.2); padding: 10px 12px; outline: none; }
   textarea:focus, .ninput:focus { border-color: var(--muted); }
   .controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 16px 0 12px; }
@@ -1311,11 +1313,16 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
     for (const f of found) {
       if (f.sure && sure < 6) { pick.set(f.n, 'sure'); sure++; } else if (!pick.has(f.n)) pick.set(f.n, 'maybe');
     }
-    box.innerHTML = `<div class="calc-balls">${found.map((f) => ballHTML(f.n, 'sm' + (pick.get(f.n) === 'sure' ? ' dream' : ''))).join('')}</div>`;
+    box.innerHTML = `<div class="calc-balls">${found.map((f) => ballHTML(f.n, 'sm' + (pick.get(f.n) === 'sure' ? ' dream' : ''))).join('')}</div>
+      <div class="calc-ask" id="calcAsk">
+        <p>이 번호들로 추첨기를 돌려 나머지 번호를 채워 드릴까요?</p>
+        <div class="row"><button class="btn primary sm" id="calcGo">${icon('balls')}네, 추첨기 돌리기</button><button class="btn ghost sm" id="calcLater">나중에</button></div>
+      </div>`;
+    $('calcGo').onclick = () => { $('calcAsk').remove(); $('drawBtn').click(); };
+    $('calcLater').onclick = () => { Sound.click(); $('calcAsk').remove(); };
     btn.disabled = false;
     Sound.dreamChime(); paintGrid();
     const r = btn.getBoundingClientRect(); FX.sparkle(r.left + r.width / 2, r.top, 12);
-    toast(`꿈에서 번호 ${found.length}개를 찾았어요`);
   };
   paintGrid();
 
