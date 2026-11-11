@@ -234,6 +234,7 @@
   .set-row .lbl .i { color: var(--muted); }
   .set-row small { display: block; color: var(--muted); font-size: var(--step--1); }
   .modal { align-items: center; padding: 16px; }
+  #ask { z-index: 95; }
   .dialog { width: min(360px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 24px; text-align: center; display: grid; gap: 16px; animation: popIn .25s ease-out; }
   .intro { width: min(380px, 100%); text-align: center; display: grid; gap: 16px; justify-items: center; padding: 32px 24px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; animation: popIn .3s ease-out; }
   .intro .art { width: 88px; height: 88px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--ink); }
@@ -259,7 +260,7 @@
   #sleep .s-alarm { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
   #sleep .s-hint { position: absolute; left: 0; right: 0; bottom: calc(36px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 15px; color: #2f2a52; padding: 0 24px; }
   #sleep .s-wake { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); z-index: 3;
-    display: inline-flex; align-items: center; gap: 6px; border: 1px solid #221d3d; background: #07060f; color: #4b4470; border-radius: 99px; padding: 8px 14px; font-size: 14px; }
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px; border: 1px solid #2a2f40; background: #0b0d14; color: #7a8296; border-radius: 99px; padding: 0 16px; font-size: 14px; }
   #pressRing { position: absolute; width: 140px; height: 140px; border-radius: 50%; border: 2px solid #6e5bd6; pointer-events: none; transform: translate(-50%, -50%) scale(.3); opacity: 0; }
   #pressRing.on { animation: pressFill .9s linear forwards; }
 
@@ -969,6 +970,8 @@
   }
   tabs.forEach((t) => { t.onclick = () => show(t.dataset.view); });
   addEventListener('popstate', () => {
+    // 꿈 모드 중이면 뒤로 가기 = 꿈 모드 끄기
+    if (Sleep.on) { if (!$('ask').hidden) $('askNo').click(); Sleep.stop(true); return; }
     // 열려 있는 창이 있으면 먼저 닫는다
     if (!$('settings').hidden) { $('settings').hidden = true; history.pushState(null, '', '#' + current); return; }
     show(location.hash.slice(1) || 'dream', true, true); scrollTo({ top: 0 });
@@ -1027,6 +1030,7 @@
       try { await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); } catch (e) { /* 미지원 */ }
       try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {}); } catch (e) { /* 무시 */ }
       this.on = true; this.session = []; this.alarmFired = false;
+      history.pushState(null, '', '#' + current); this.pushed = true; // 뒤로 가기로 꿈 모드를 끌 수 있게 한 칸 쌓아 둔다
       $('sleep').classList.add('show'); ['rec', 'alarm', 'keypad'].forEach((id) => $(id).classList.remove('show'));
       $('sHint').textContent = this.noMic ? '꾹 누르면 번호를 입력할 수 있어요' : '꾹 누르거나 흔들고 말하세요';
       await this.lock();
@@ -1038,7 +1042,9 @@
       Sound.sleepOn();
     },
     async lock() { try { this.wake = await navigator.wakeLock?.request('screen'); } catch (e) { this.wake = null; } },
-    async stop() {
+    async stop(fromBack) {
+      if (this.pushed && !fromBack) history.back(); // 깨기 버튼으로 끝냈으면 쌓아 둔 한 칸을 되돌린다
+      this.pushed = false;
       if (Rec.active) await this.stopRec();
       this.on = false; clearInterval(this.tick); this.stopAlarm();
       removeEventListener('devicemotion', this.onMotion);
