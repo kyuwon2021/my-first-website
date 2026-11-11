@@ -1263,7 +1263,13 @@
     paintGrid();
   }
   $('pickHelp').onclick = () => { const t = $('pickHelpText'); t.hidden = !t.hidden; $('pickHelp').setAttribute('aria-expanded', String(!t.hidden)); Sound.init(); Sound.click(); };
-  $('clearPick').onclick = () => { Sound.click(); pick.clear(); paintGrid(); };
+  $('clearPick').onclick = () => {
+    Sound.init(); Sound.boop(false);
+    pick.clear(); paintGrid();
+    $('dreamText').value = ''; store.set('dl-dream', '');
+    $('dreamCalc').innerHTML = ''; $('dreamCalc').hidden = true;
+    toast('고른 번호와 꿈 내용을 비웠어요');
+  };
   $('gMinus').onclick = () => { Sound.init(); if (games > 1) { games--; Sound.boop(false); store.set('dl-games', games); paintGrid(); } };
   $('gPlus').onclick = () => { Sound.init(); if (games < 5) { games++; Sound.boop(true); store.set('dl-games', games); paintGrid(); } };
   /* ---------- 번호 분포 규칙: 1·2·3이나 12·24·36처럼 같은 간격으로 늘어선 세 수를 막고, 1~45에 고르게 ---------- */
