@@ -124,6 +124,10 @@
   .legend .lg.sure { background: var(--gold); }
   .legend .lg.maybe { border: 1.5px dashed var(--ink); }
   .legend .count { margin-left: auto; color: var(--ink); }
+  .seg { display: inline-flex; padding: 4px; gap: 4px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+  .seg button { display: inline-flex; align-items: center; gap: 0; min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: var(--step--1); }
+  .seg button small { margin-left: 6px; color: var(--faint); font-size: 12px; }
+  .seg button[aria-checked="true"] { background: var(--surface-2); color: var(--ink); box-shadow: inset 0 1px 0 rgba(255,255,255,.06); }
   #pickHelpText { margin: -2px 0 10px; max-width: 46ch; }
   .grid { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; }
   @media (max-width: 420px) { .grid { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
@@ -401,8 +405,14 @@
             <h2>기억나는 번호</h2>
             <button class="icon-btn" id="pickHelp" aria-label="고정·분산 설명" aria-expanded="false"><svg class="i"><use href="#i-help"/></svg></button>
           </div>
-          <p class="hint" id="pickHelpText" hidden>한 번 누르면 고정, 두 번이면 분산, 세 번이면 해제. 고정 번호는 모든 게임에, 분산 번호는 게임마다 나눠 넣어요.</p>
-          <div class="legend"><span><i class="lg sure"></i>고정</span><span><i class="lg maybe"></i>분산</span><span class="count num" id="pickInfo"></span></div>
+          <p class="hint" id="pickHelpText" hidden>확실히 기억나는 번호는 고정으로, 긴가민가한 번호는 분산으로 고르세요. 고정은 모든 게임에 들어가고, 분산은 몇 게임에만 나눠 들어가요. 고른 번호를 다시 누르면 빠져요.</p>
+          <div class="legend">
+            <div class="seg" role="radiogroup" aria-label="고르는 방식">
+              <button role="radio" aria-checked="true" data-mode="sure"><i class="lg sure"></i>고정<small>모든 게임</small></button>
+              <button role="radio" aria-checked="false" data-mode="maybe"><i class="lg maybe"></i>분산<small>일부 게임</small></button>
+            </div>
+            <span class="count num" id="pickInfo"></span>
+          </div>
           <div class="grid" id="grid"></div>
           <details class="find">
             <summary><svg class="i sm"><use href="#i-spark"/></svg>꿈 내용으로 번호 찾기</summary>
@@ -1186,17 +1196,23 @@
    * ===================================================== */
   const pick = new Map(); // n -> 'sure' | 'maybe'
   let games = store.get('dl-games', 5);
+  let pickMode = 'sure';
+  document.querySelectorAll('.seg button').forEach((b) => {
+    b.onclick = () => {
+      Sound.init(); Sound.click(); pickMode = b.dataset.mode;
+      document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+    };
+  });
   const grid = $('grid');
   for (let n = 1; n <= 45; n++) {
     const b = document.createElement('button'); b.className = 'n'; b.textContent = n; b.dataset.n = n; b.setAttribute('aria-label', `${n}번`);
     b.onclick = () => {
       Sound.init();
+      // 고른 방식(고정/분산)으로 넣고, 같은 방식으로 다시 누르면 뺀다
       const cur = pick.get(n);
-      if (!cur) {
-        if ([...pick.values()].filter((v) => v === 'sure').length >= 6) { pick.set(n, 'maybe'); toast('고정 번호는 6개까지예요'); }
-        else pick.set(n, 'sure');
-      } else if (cur === 'sure') pick.set(n, 'maybe');
-      else pick.delete(n);
+      if (cur === pickMode) pick.delete(n);
+      else if (pickMode === 'sure' && [...pick.values()].filter((v) => v === 'sure').length >= 6) { toast('고정 번호는 6개까지예요'); return; }
+      else pick.set(n, pickMode);
       Sound.boop(!!pick.get(n)); paintGrid();
     };
     grid.appendChild(b);
