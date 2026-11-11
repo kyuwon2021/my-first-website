@@ -138,10 +138,8 @@
   details.find[open] summary { color: var(--ink); }
   details.find .body { padding: 0 16px 16px; display: grid; gap: 8px; }
   .calc { display: grid; gap: 8px; padding-top: 4px; }
-  .calc-row { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: var(--step--1); }
-  .calc-row .why { flex: 1; min-width: 0; }
-  .calc-row .role { color: var(--faint); flex: none; }
   .calc-note { color: var(--faint); font-size: var(--step--1); }
+  .calc-balls { display: flex; flex-wrap: wrap; gap: 8px; }
   textarea { width: 100%; min-height: 72px; resize: vertical; border-radius: 8px; border: 1px solid var(--line); background: rgba(0,0,0,.2); padding: 10px 12px; outline: none; }
   textarea:focus, .ninput:focus { border-color: var(--muted); }
   .controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 16px 0 12px; }
@@ -410,7 +408,7 @@
             <summary><svg class="i sm"><use href="#i-spark"/></svg>꿈 내용으로 번호 찾기</summary>
             <div class="body">
               <textarea id="dreamText" placeholder="예: 돼지 세 마리가 덤볐는데 두 마리는 도망갔어"></textarea>
-              <div class="row"><button class="btn sm" id="haemongBtn">번호 계산</button><button class="btn sm ghost" id="clearPick">선택 비우기</button></div>
+              <div class="row"><button class="btn sm" id="haemongBtn">번호 찾기</button><button class="btn sm ghost" id="clearPick">선택 비우기</button></div>
               <div class="calc" id="dreamCalc" hidden></div>
             </div>
           </details>
@@ -1222,29 +1220,90 @@
   $('clearPick').onclick = () => { Sound.click(); pick.clear(); paintGrid(); };
   $('gMinus').onclick = () => { Sound.init(); if (games > 1) { games--; Sound.boop(false); store.set('dl-games', games); paintGrid(); } };
   $('gPlus').onclick = () => { Sound.init(); if (games < 5) { games++; Sound.boop(true); store.set('dl-games', games); paintGrid(); } };
-  $('haemongBtn').onclick = () => {
+  /* ---------- 번호 분포 규칙: 1·2·3이나 12·24·36처럼 같은 간격으로 늘어선 세 수를 막고, 1~45에 고르게 ---------- */
+  const sortN = (a) => [...a].sort((x, y) => x - y);
+  // 같은 간격 세 수(연속 포함)가 있는가. only가 있으면 그 번호가 낀 경우만 본다
+  function hasRun(nums, only) {
+    const a = sortN(nums), has = new Set(a);
+    for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) {
+      const c = 2 * a[j] - a[i];
+      if (has.has(c) && (!only || only.has(a[i]) || only.has(a[j]) || only.has(c))) return true;
+    }
+    return false;
+  }
+  // 9칸씩 다섯 구간(1-9, 10-18, 19-27, 28-36, 37-45) 중 네 구간 이상, 한 구간에 둘까지
+  function spreadOK(nums) {
+    const c = [0, 0, 0, 0, 0]; nums.forEach((n) => c[Math.min(4, Math.floor((n - 1) / 9))]++);
+    return c.filter(Boolean).length >= 4 && Math.max(...c) <= 2;
+  }
+  // 기존 번호와 겹치거나 줄을 이루지 않는 가장 가까운 번호
+  function nearestFree(n, taken) {
+    for (let d = 0; d < 45; d++) for (const v of [n + d, n - d]) {
+      if (v < 1 || v > 45 || taken.includes(v)) continue;
+      if (!hasRun([...taken, v], new Set([v]))) return v;
+    }
+    return 0;
+  }
+  // 글자에서 씨앗을 만든 난수 (같은 꿈·같은 시각이면 같은 결과)
+  function seeded(str) {
+    let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  // 대화창 안에서 열렸을 때만 Claude에게 꿈에서 떠오르는 번호를 묻는다. 그 밖에서는 글자 씨앗 난수
+  const samplerP = typeof window.claude?.use === 'function' ? window.claude.use('sample').catch(() => null) : Promise.resolve(null);
+  async function associate(text, taken, when) {
+    const sample = await samplerP;
+    if (sample) {
+      const prompt = `아래는 한 사람이 꾼 꿈 이야기다. 이 꿈을 듣고 떠오르는 로또 번호(1~45) 두 개를 골라라.
+이미 고른 번호: ${taken.join(', ') || '없음'}
+규칙: 이미 고른 번호와 겹치지 말 것, 바로 옆 번호(±1)와 같은 간격으로 늘어선 번호(예: 1·2·3, 12·24·36)를 만들지 말 것, 1~45 전체에 고르게 흩어지게 할 것.
+지금 시각: ${when}
+JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
+
+꿈: ${text}`;
+      try {
+        const res = await Promise.race([sample.json(prompt, { modelTier: 'quick', cache: false }), wait(15000).then(() => null)]);
+        const ns = (res && Array.isArray(res.numbers) ? res.numbers : []).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 45);
+        if (ns.length) return ns.slice(0, 2);
+      } catch (e) { /* 거부·한도 초과 → 아래 난수로 */ }
+    }
+    const rnd = seeded(text + '|' + when);
+    return [1 + Math.floor(rnd() * 45), 1 + Math.floor(rnd() * 45)];
+  }
+
+  $('haemongBtn').onclick = async () => {
     Sound.init();
-    const { items, skipped } = analyzeDream($('dreamText').value), box = $('dreamCalc');
+    const text = $('dreamText').value.trim(), box = $('dreamCalc'), btn = $('haemongBtn');
     box.hidden = false;
-    if (!items.length) {
-      Sound.boop(false);
-      box.innerHTML = `<p class="calc-note">띠 동물(쥐·소·호랑이 … 돼지)이나 꿈에서 본 숫자가 있어야 계산할 수 있어요${skipped.length ? '. ' + skipped.map(esc).join(', ') : ''}</p>`;
-      return;
-    }
+    if (!text) { Sound.boop(false); box.innerHTML = '<p class="calc-note">꿈 내용을 먼저 적어주세요</p>'; return; }
+    btn.disabled = true; box.innerHTML = '<p class="calc-note">꿈을 읽고 있어요…</p>';
+    const now = new Date(), when = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const found = [];                       // { n, sure }
+    const taken = () => [...pick.keys(), ...found.map((f) => f.n)];
+    const put = (n, sure) => {
+      if (!n || taken().includes(n)) return;
+      // 고정 번호가 다른 번호와 줄을 이루면 분산으로 돌려 한 게임에 같이 들어가지 않게 한다
+      found.push({ n, sure: sure && !hasRun([...taken(), n], new Set([n])) });
+    };
+    // ① 12지 동물과 꿈에서 본 숫자
+    analyzeDream(text).items.forEach((it) => put(it.n, true));
+    // ② 버튼을 누른 시각 (하루의 분을 1~45로)
+    put(nearestFree(((now.getHours() * 60 + now.getMinutes()) % 45) + 1, taken()), false);
+    // ③ 꿈에서 떠오르는 번호
+    for (const n of await associate(text, taken(), when)) put(nearestFree(n, taken()), false);
     let sure = [...pick.values()].filter((v) => v === 'sure').length;
-    for (const it of items) {
-      if (pick.get(it.n) === 'sure') continue;
-      if (sure < 6) { pick.set(it.n, 'sure'); sure++; } else if (!pick.has(it.n)) pick.set(it.n, 'maybe');
+    for (const f of found) {
+      if (f.sure && sure < 6) { pick.set(f.n, 'sure'); sure++; } else if (!pick.has(f.n)) pick.set(f.n, 'maybe');
     }
-    box.innerHTML = items.map((it) => `<div class="calc-row">${ballHTML(it.n, 'sm' + (pick.get(it.n) === 'sure' ? ' dream' : ''))}<span class="why">${it.why.map(esc).join(' · ')}</span><span class="role">${pick.get(it.n) === 'sure' ? '고정' : '분산'}</span></div>`).join('')
-      + skipped.map((t) => `<p class="calc-note">${esc(t)}</p>`).join('');
+    box.innerHTML = `<div class="calc-balls">${found.map((f) => ballHTML(f.n, 'sm' + (pick.get(f.n) === 'sure' ? ' dream' : ''))).join('')}</div>`;
+    btn.disabled = false;
     Sound.dreamChime(); paintGrid();
-    const r = $('haemongBtn').getBoundingClientRect(); FX.sparkle(r.left + r.width / 2, r.top, 12);
-    toast(`꿈에서 번호 ${items.length}개를 계산했어요`);
+    const r = btn.getBoundingClientRect(); FX.sparkle(r.left + r.width / 2, r.top, 12);
+    toast(`꿈에서 번호 ${found.length}개를 찾았어요`);
   };
   paintGrid();
 
-  /* 게임 만들기: 고정 번호는 전부, 분산 번호는 나눠 넣기 */
+  /* 게임 만들기: 고정 번호는 전부, 분산 번호는 나눠 넣기, 나머지는 고르게 흩어진 자동 번호 */
   function makeGames(G) {
     const sure = [...pick].filter(([, v]) => v === 'sure').map(([n]) => n);
     const maybe = shuffle([...pick].filter(([, v]) => v === 'maybe').map(([n]) => n));
@@ -1255,21 +1314,28 @@
       for (const n of maybe) {
         for (let k = 0; k < times; k++) {
           const order = shuffle([...Array(G).keys()]).sort((a, b) => per[a].length - per[b].length);
-          const g = order.find((g) => !per[g].includes(n) && per[g].length < maxMaybe);
+          const g = order.find((g) => !per[g].includes(n) && per[g].length < maxMaybe && !hasRun([...sure, ...per[g], n], new Set([n])));
           if (g !== undefined) per[g].push(n);
         }
       }
     }
     const out = [], keys = new Set();
     for (let g = 0; g < G; g++) {
-      let set, tries = 0;
-      do {
-        set = new Set([...sure, ...per[g]]);
+      const fixed = [...sure, ...per[g]];
+      let nums = null;
+      // 자동 번호가 줄을 이루지 않고 1~45에 고르게 퍼질 때까지 다시 뽑는다 (고르게 퍼지는 조건은 300번 뒤 완화)
+      for (let tries = 0; tries < 600; tries++) {
+        const set = new Set(fixed);
         const pool = shuffle([...Array(45).keys()].map((i) => i + 1).filter((n) => !set.has(n)));
         while (set.size < 6) set.add(pool.pop());
-        tries++;
-      } while (keys.has([...set].sort((a, b) => a - b).join()) && tries < 30);
-      const nums = [...set].sort((a, b) => a - b); keys.add(nums.join());
+        const cand = sortN(set), auto = new Set(cand.filter((n) => !fixed.includes(n)));
+        if (keys.has(cand.join())) continue;
+        if (hasRun(cand, auto)) continue;
+        if (tries < 300 && !spreadOK(cand)) continue;
+        nums = cand; break;
+      }
+      if (!nums) { const set = new Set(fixed); const pool = shuffle([...Array(45).keys()].map((i) => i + 1).filter((n) => !set.has(n))); while (set.size < 6) set.add(pool.pop()); nums = sortN(set); }
+      keys.add(nums.join());
       out.push({ nums, sure: sure.slice(), maybe: per[g].slice() });
     }
     return out;
@@ -1594,7 +1660,7 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('settings').hidden = true; } });
 
   // 테스트용
-  window.__dreamLotto = { extractNumbers, analyzeDream, makeGames: (g) => makeGames(g), pick, DB, Sleep, Rec, show };
+  window.__dreamLotto = { extractNumbers, analyzeDream, hasRun, spreadOK, makeGames: (g) => makeGames(g), pick, DB, Sleep, Rec, show };
 })();
 </script>
 </body>
