@@ -774,18 +774,22 @@
     }
     return N_ONES[w] || null;
   }
-  function extractNumbers(text) {
-    const out = [];
+  // strict: 꿈 내용 글처럼 일반 문장일 때. '한 마리', '일을' 같은 한 글자 단어는 숫자로 보지 않는다
+  function extractPairs(text, strict = false) {
+    const out = [], pairs = [];
     const toks = String(text).replace(/(\d+)/g, ' $1 ').split(/[^0-9가-힣]+/).filter(Boolean);
     for (let t of toks) {
+      const word = t;
       let n = wordToNum(t.replace(/(번|요)$/, '')) || wordToNum(t);
       if (!n && t.length > 1) t = t.replace(/(번이요|번이야|번이고|번|이요|이랑|하고|이고|랑|요)$/, '');
-      if (/^\d{3,}$/.test(t)) { for (let i = 0; i < t.length; i += 2) { const v = +t.slice(i, i + 2); if (v >= 1 && v <= 45 && !out.includes(v)) out.push(v); } continue; }
+      if (/^\d{3,}$/.test(t)) { for (let i = 0; i < t.length; i += 2) { const v = +t.slice(i, i + 2); if (v >= 1 && v <= 45 && !out.includes(v)) { out.push(v); pairs.push({ n: v, w: word }); } } continue; }
       if (!n) n = wordToNum(t);
-      if (n && n >= 1 && n <= 45 && !out.includes(n)) out.push(n);
+      if (strict && !/^\d+$/.test(t) && t.replace(/(번|요)$/, '').length < 2) continue;
+      if (n && n >= 1 && n <= 45 && !out.includes(n)) { out.push(n); pairs.push({ n, w: word }); }
     }
-    return out;
+    return pairs;
   }
+  const extractNumbers = (text, strict) => extractPairs(text, strict).map((p) => p.n);
 
   /* 재미로 만든 꿈 해몽 사전 */
   const DREAM_DICT = [
@@ -1188,13 +1192,13 @@
   $('gPlus').onclick = () => { Sound.init(); if (games < 5) { games++; Sound.boop(true); store.set('dl-games', games); paintGrid(); } };
   $('haemongBtn').onclick = () => {
     Sound.init();
-    const text = $('dreamText').value, found = haemong(text), spoken = extractNumbers(text);
+    const text = $('dreamText').value, found = haemong(text), spoken = extractPairs(text, true).filter((p) => !found.some((f) => f.n === p.n));
     if (!found.length && !spoken.length) { Sound.boop(false); toast('찾은 단어가 없어요. 돼지, 용, 물, 돈 같은 단어를 써보세요', 3500); return; }
     found.forEach((f) => { if (!pick.has(f.n)) pick.set(f.n, 'maybe'); });
-    spoken.forEach((n) => { if (!pick.has(n)) pick.set(n, 'maybe'); });
+    spoken.forEach((p) => { if (!pick.has(p.n)) pick.set(p.n, 'maybe'); });
     Sound.dreamChime(); paintGrid();
     const r = $('haemongBtn').getBoundingClientRect(); FX.sparkle(r.left + r.width / 2, r.top, 12);
-    toast([...found.map((f) => `${f.w} → ${f.n}번`), ...spoken.map((n) => `${n}번`)].join(', ') + '을 분산 번호로 넣었어요', 4500);
+    toast([...found.map((f) => `${f.w} → ${f.n}번`), ...spoken.map((p) => /^\d+$/.test(p.w) ? `${p.n}번` : `${p.w} → ${p.n}번`)].join(', ') + '을 분산 번호로 넣었어요', 4500);
   };
   paintGrid();
 
