@@ -798,32 +798,23 @@
   const extractNumbers = (text, strict) => extractPairs(text, strict).map((p) => p.n);
 
   /* 꿈 내용 → 번호. 근거가 보이는 규칙만 쓴다
-     ① 12지 동물은 띠 순서 번호 (쥐 1 … 돼지 12)
-     ② 수량은 혼자 번호가 되지 않고 그 동물 번호에 곱한다 (돼지 세 마리 = 3 × 12 = 36)
-        그래서 "세 마리 중 두 마리, 한 마리"처럼 나뉘어도 1·2·3이 자리를 차지하지 않는다
-     ③ 꿈에서 본 숫자는 그대로 (예: 문에 적힌 7) */
+     ① 12지 동물은 띠 순서 번호 하나 (쥐 1 … 돼지 12). 몇 마리가 나와도 번호는 하나
+     ② 꿈에서 본 숫자는 그대로 (예: 문에 적힌 7)
+     수량("세 마리", "두 번")은 번호를 만들지 않는다. 곱하거나 따로 세면 필요 없는 번호가 자리를 차지한다 */
   const ZODIAC = [
     [1, '쥐', ['쥐', '생쥐']], [2, '소', ['소', '황소', '송아지', '젖소']], [3, '호랑이', ['호랑이', '범']], [4, '토끼', ['토끼']],
     [5, '용', ['용', '이무기']], [6, '뱀', ['뱀', '구렁이']], [7, '말', ['말', '망아지']], [8, '양', ['양', '염소']],
     [9, '원숭이', ['원숭이']], [10, '닭', ['닭', '병아리', '수탉', '암탉']], [11, '개', ['개', '강아지']], [12, '돼지', ['돼지', '멧돼지']],
   ];
-  const ONES = { 한: 1, 두: 2, 세: 3, 네: 4, 다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9 };
-  const TENS = { 열: 10, 스물: 20, 스무: 20, 서른: 30, 마흔: 40 };
   const COUNT_RE = /(^|[^가-힣0-9])(\d{1,2}|(?:열|스물|서른|마흔)?(?:한|두|세|네|다섯|여섯|일곱|여덟|아홉)|열|스무|스물|서른|마흔)\s*(마리|명|개|번)/g;
-  function countValue(w) {
-    if (/^\d+$/.test(w)) return +w;
-    for (const [t, v] of Object.entries(TENS)) if (w.startsWith(t)) return v + (ONES[w.slice(t.length)] || 0);
-    return ONES[w] || 0;
-  }
   function analyzeDream(text) {
     text = String(text || '');
-    const counts = [], animals = [], covered = [];
+    const animals = [], covered = [];
     const free = (a, b) => !covered.some(([x, y]) => a < y && b > x);
     let m;
     COUNT_RE.lastIndex = 0;
     while ((m = COUNT_RE.exec(text))) {
       const at = m.index + m[1].length, len = m[0].length - m[1].length;
-      counts.push({ at, c: countValue(m[2]), word: m[2] + (m[0].includes(' ' + m[3]) ? ' ' : '') + m[3] });
       covered.push([at, at + len]);
     }
     const names = ZODIAC.flatMap(([k, base, list]) => list.map((w) => ({ k, base, w }))).sort((a, b) => b.w.length - a.w.length);
@@ -839,35 +830,13 @@
       }
     }
     animals.sort((a, b) => a.at - b.at);
-    const sentenceOf = (i) => { let s = 0; for (let j = 0; j < i; j++) if (/[.!?\n]/.test(text[j])) s++; return s; };
-    const items = new Map(), skipped = [];
-    const add = (n, why, role) => {
-      const it = items.get(n);
-      if (it) { if (!it.why.includes(why)) it.why.push(why); if (role === 'sure') it.role = 'sure'; }
-      else items.set(n, { n, why: [why], role });
-    };
-    for (const a of animals) add(a.k, `${a.w} · 12지 ${a.k}번째`, 'sure');
-    const perAnimal = new Map();
-    for (const c of counts) {
-      if (!c.c) continue;
-      const sc = sentenceOf(c.at), same = animals.filter((a) => sentenceOf(a.at) === sc);
-      const before = same.filter((a) => a.at < c.at).pop(), after = same.find((a) => a.at > c.at);
-      const a = before || after || animals.filter((x) => x.at < c.at).pop();
-      if (!a) continue; // 동물 없이 수량만 있으면 번호로 쓰지 않는다
-      const p = c.c * a.k;
-      if (p > 45) { skipped.push(`${a.w} ${c.word} × ${a.k} = ${p}, 45를 넘어 제외`); continue; }
-      if (!perAnimal.has(a.k)) perAnimal.set(a.k, []);
-      perAnimal.get(a.k).push({ p, why: `${a.w} ${c.word} × ${a.k}` });
-    }
-    for (const list of perAnimal.values()) {
-      const max = Math.max(...list.map((x) => x.p));
-      for (const x of list) add(x.p, x.why, x.p === max ? 'sure' : 'maybe');
-    }
+    const items = new Map();
+    const add = (n, why) => { const it = items.get(n); if (it) { if (!it.why.includes(why)) it.why.push(why); } else items.set(n, { n, why: [why], role: 'sure' }); };
+    for (const a of animals) add(a.k, `${a.w} · 12지 ${a.k}번째`);
     // 수량·동물이 아닌 곳에 적힌 숫자
     const masked = text.split('').map((ch, i) => (covered.some(([x, y]) => i >= x && i < y) ? ' ' : ch)).join('');
-    for (const pr of extractPairs(masked, true)) add(pr.n, `꿈에서 본 숫자 ${pr.w}`, 'sure');
-    const list = [...items.values()].sort((a, b) => (a.role === b.role ? 0 : a.role === 'sure' ? -1 : 1));
-    return { items: list, skipped };
+    for (const pr of extractPairs(masked, true)) add(pr.n, `꿈에서 본 숫자 ${pr.w}`);
+    return { items: [...items.values()], skipped: [] };
   }
 
   /* =====================================================
@@ -1265,7 +1234,7 @@
     let sure = [...pick.values()].filter((v) => v === 'sure').length;
     for (const it of items) {
       if (pick.get(it.n) === 'sure') continue;
-      if (it.role === 'sure' && sure < 6) { pick.set(it.n, 'sure'); sure++; } else if (!pick.has(it.n)) pick.set(it.n, 'maybe');
+      if (sure < 6) { pick.set(it.n, 'sure'); sure++; } else if (!pick.has(it.n)) pick.set(it.n, 'maybe');
     }
     box.innerHTML = items.map((it) => `<div class="calc-row">${ballHTML(it.n, 'sm' + (pick.get(it.n) === 'sure' ? ' dream' : ''))}<span class="why">${it.why.map(esc).join(' · ')}</span><span class="role">${pick.get(it.n) === 'sure' ? '고정' : '분산'}</span></div>`).join('')
       + skipped.map((t) => `<p class="calc-note">${esc(t)}</p>`).join('');
