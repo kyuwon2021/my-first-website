@@ -137,6 +137,11 @@
   details.find summary::-webkit-details-marker { display: none; }
   details.find[open] summary { color: var(--ink); }
   details.find .body { padding: 0 16px 16px; display: grid; gap: 8px; }
+  .calc { display: grid; gap: 8px; padding-top: 4px; }
+  .calc-row { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: var(--step--1); }
+  .calc-row .why { flex: 1; min-width: 0; }
+  .calc-row .role { color: var(--faint); flex: none; }
+  .calc-note { color: var(--faint); font-size: var(--step--1); }
   textarea { width: 100%; min-height: 72px; resize: vertical; border-radius: 8px; border: 1px solid var(--line); background: rgba(0,0,0,.2); padding: 10px 12px; outline: none; }
   textarea:focus, .ninput:focus { border-color: var(--muted); }
   .controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 16px 0 12px; }
@@ -404,8 +409,9 @@
           <details class="find">
             <summary><svg class="i sm"><use href="#i-spark"/></svg>꿈 내용으로 번호 찾기</summary>
             <div class="body">
-              <textarea id="dreamText" placeholder="예: 돼지가 용을 타고 하늘을 날았어"></textarea>
-              <div class="row"><button class="btn sm" id="haemongBtn">번호 찾기</button><button class="btn sm ghost" id="clearPick">선택 비우기</button></div>
+              <textarea id="dreamText" placeholder="예: 돼지 세 마리가 덤볐는데 두 마리는 도망갔어"></textarea>
+              <div class="row"><button class="btn sm" id="haemongBtn">번호 계산</button><button class="btn sm ghost" id="clearPick">선택 비우기</button></div>
+              <div class="calc" id="dreamCalc" hidden></div>
             </div>
           </details>
           <div class="controls">
@@ -791,20 +797,77 @@
   }
   const extractNumbers = (text, strict) => extractPairs(text, strict).map((p) => p.n);
 
-  /* 재미로 만든 꿈 해몽 사전 */
-  const DREAM_DICT = [
-    ['돼지', 8], ['용', 15], ['뱀', 7], ['호랑이', 27], ['조상', 4], ['할머니', 19], ['할아버지', 20], ['대통령', 1], ['똥', 33], ['불', 11],
-    ['물', 2], ['바다', 22], ['돈', 45], ['금', 24], ['피', 14], ['이빨', 18], ['아기', 3], ['꽃', 9], ['거북', 10], ['물고기', 28], ['집', 6],
-    ['자동차', 25], ['비행기', 39], ['하늘', 41], ['달', 30], ['해', 12], ['별', 36], ['고양이', 13], ['강아지', 21], ['연예인', 17], ['소', 26],
-    ['말', 31], ['산', 16], ['무지개', 37], ['반지', 42], ['시험', 23], ['결혼', 44], ['눈', 29], ['비', 5], ['학교', 35], ['엄마', 38], ['아빠', 40],
+  /* 꿈 내용 → 번호. 근거가 보이는 규칙만 쓴다
+     ① 12지 동물은 띠 순서 번호 (쥐 1 … 돼지 12)
+     ② 수량은 혼자 번호가 되지 않고 그 동물 번호에 곱한다 (돼지 세 마리 = 3 × 12 = 36)
+        그래서 "세 마리 중 두 마리, 한 마리"처럼 나뉘어도 1·2·3이 자리를 차지하지 않는다
+     ③ 꿈에서 본 숫자는 그대로 (예: 문에 적힌 7) */
+  const ZODIAC = [
+    [1, '쥐', ['쥐', '생쥐']], [2, '소', ['소', '황소', '송아지', '젖소']], [3, '호랑이', ['호랑이', '범']], [4, '토끼', ['토끼']],
+    [5, '용', ['용', '이무기']], [6, '뱀', ['뱀', '구렁이']], [7, '말', ['말', '망아지']], [8, '양', ['양', '염소']],
+    [9, '원숭이', ['원숭이']], [10, '닭', ['닭', '병아리', '수탉', '암탉']], [11, '개', ['개', '강아지']], [12, '돼지', ['돼지', '멧돼지']],
   ];
-  function haemong(text) {
-    const found = [];
-    for (const [w, n] of DREAM_DICT) {
-      const re = w.length === 1 ? new RegExp(`(^|[^가-힣])${w}(?=[^가-힣]|$|[이가을를은는에도와과의])`) : new RegExp(w);
-      if (re.test(text) && !found.some((f) => f.n === n)) found.push({ w, n });
+  const ONES = { 한: 1, 두: 2, 세: 3, 네: 4, 다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9 };
+  const TENS = { 열: 10, 스물: 20, 스무: 20, 서른: 30, 마흔: 40 };
+  const COUNT_RE = /(^|[^가-힣0-9])(\d{1,2}|(?:열|스물|서른|마흔)?(?:한|두|세|네|다섯|여섯|일곱|여덟|아홉)|열|스무|스물|서른|마흔)\s*(마리|명|개|번)/g;
+  function countValue(w) {
+    if (/^\d+$/.test(w)) return +w;
+    for (const [t, v] of Object.entries(TENS)) if (w.startsWith(t)) return v + (ONES[w.slice(t.length)] || 0);
+    return ONES[w] || 0;
+  }
+  function analyzeDream(text) {
+    text = String(text || '');
+    const counts = [], animals = [], covered = [];
+    const free = (a, b) => !covered.some(([x, y]) => a < y && b > x);
+    let m;
+    COUNT_RE.lastIndex = 0;
+    while ((m = COUNT_RE.exec(text))) {
+      const at = m.index + m[1].length, len = m[0].length - m[1].length;
+      counts.push({ at, c: countValue(m[2]), word: m[2] + (m[0].includes(' ' + m[3]) ? ' ' : '') + m[3] });
+      covered.push([at, at + len]);
     }
-    return found;
+    const names = ZODIAC.flatMap(([k, base, list]) => list.map((w) => ({ k, base, w }))).sort((a, b) => b.w.length - a.w.length);
+    for (const { k, base, w } of names) {
+      const re = w.length === 1
+        ? new RegExp(`(^|[^가-힣])(${w})(?=$|[^가-힣]|[이가을를은는에도와과의랑꿈들])`, 'g')
+        : new RegExp(`()(${w})`, 'g');
+      while ((m = re.exec(text))) {
+        const at = m.index + m[1].length;
+        // '말'은 말(言)과 헷갈리므로 마리·타다·달리다처럼 동물임이 드러날 때만 쓴다
+        if (w === '말' && !/^말\S*\s*(\S+\s*){0,2}?(마리|타|탔|달리|달려|뛰|히힝|갈기|발굽)/.test(text.slice(at, at + 16))) continue;
+        if (free(at, at + w.length)) { animals.push({ at, k, base, w }); covered.push([at, at + w.length]); }
+      }
+    }
+    animals.sort((a, b) => a.at - b.at);
+    const sentenceOf = (i) => { let s = 0; for (let j = 0; j < i; j++) if (/[.!?\n]/.test(text[j])) s++; return s; };
+    const items = new Map(), skipped = [];
+    const add = (n, why, role) => {
+      const it = items.get(n);
+      if (it) { if (!it.why.includes(why)) it.why.push(why); if (role === 'sure') it.role = 'sure'; }
+      else items.set(n, { n, why: [why], role });
+    };
+    for (const a of animals) add(a.k, `${a.w} · 12지 ${a.k}번째`, 'sure');
+    const perAnimal = new Map();
+    for (const c of counts) {
+      if (!c.c) continue;
+      const sc = sentenceOf(c.at), same = animals.filter((a) => sentenceOf(a.at) === sc);
+      const before = same.filter((a) => a.at < c.at).pop(), after = same.find((a) => a.at > c.at);
+      const a = before || after || animals.filter((x) => x.at < c.at).pop();
+      if (!a) continue; // 동물 없이 수량만 있으면 번호로 쓰지 않는다
+      const p = c.c * a.k;
+      if (p > 45) { skipped.push(`${a.w} ${c.word} × ${a.k} = ${p}, 45를 넘어 제외`); continue; }
+      if (!perAnimal.has(a.k)) perAnimal.set(a.k, []);
+      perAnimal.get(a.k).push({ p, why: `${a.w} ${c.word} × ${a.k}` });
+    }
+    for (const list of perAnimal.values()) {
+      const max = Math.max(...list.map((x) => x.p));
+      for (const x of list) add(x.p, x.why, x.p === max ? 'sure' : 'maybe');
+    }
+    // 수량·동물이 아닌 곳에 적힌 숫자
+    const masked = text.split('').map((ch, i) => (covered.some(([x, y]) => i >= x && i < y) ? ' ' : ch)).join('');
+    for (const pr of extractPairs(masked, true)) add(pr.n, `꿈에서 본 숫자 ${pr.w}`, 'sure');
+    const list = [...items.values()].sort((a, b) => (a.role === b.role ? 0 : a.role === 'sure' ? -1 : 1));
+    return { items: list, skipped };
   }
 
   /* =====================================================
@@ -1192,13 +1255,23 @@
   $('gPlus').onclick = () => { Sound.init(); if (games < 5) { games++; Sound.boop(true); store.set('dl-games', games); paintGrid(); } };
   $('haemongBtn').onclick = () => {
     Sound.init();
-    const text = $('dreamText').value, found = haemong(text), spoken = extractPairs(text, true).filter((p) => !found.some((f) => f.n === p.n));
-    if (!found.length && !spoken.length) { Sound.boop(false); toast('찾은 단어가 없어요. 돼지, 용, 물, 돈 같은 단어를 써보세요', 3500); return; }
-    found.forEach((f) => { if (!pick.has(f.n)) pick.set(f.n, 'maybe'); });
-    spoken.forEach((p) => { if (!pick.has(p.n)) pick.set(p.n, 'maybe'); });
+    const { items, skipped } = analyzeDream($('dreamText').value), box = $('dreamCalc');
+    box.hidden = false;
+    if (!items.length) {
+      Sound.boop(false);
+      box.innerHTML = `<p class="calc-note">띠 동물(쥐·소·호랑이 … 돼지)이나 꿈에서 본 숫자가 있어야 계산할 수 있어요${skipped.length ? '. ' + skipped.map(esc).join(', ') : ''}</p>`;
+      return;
+    }
+    let sure = [...pick.values()].filter((v) => v === 'sure').length;
+    for (const it of items) {
+      if (pick.get(it.n) === 'sure') continue;
+      if (it.role === 'sure' && sure < 6) { pick.set(it.n, 'sure'); sure++; } else if (!pick.has(it.n)) pick.set(it.n, 'maybe');
+    }
+    box.innerHTML = items.map((it) => `<div class="calc-row">${ballHTML(it.n, 'sm' + (pick.get(it.n) === 'sure' ? ' dream' : ''))}<span class="why">${it.why.map(esc).join(' · ')}</span><span class="role">${pick.get(it.n) === 'sure' ? '고정' : '분산'}</span></div>`).join('')
+      + skipped.map((t) => `<p class="calc-note">${esc(t)}</p>`).join('');
     Sound.dreamChime(); paintGrid();
     const r = $('haemongBtn').getBoundingClientRect(); FX.sparkle(r.left + r.width / 2, r.top, 12);
-    toast([...found.map((f) => `${f.w} → ${f.n}번`), ...spoken.map((p) => /^\d+$/.test(p.w) ? `${p.n}번` : `${p.w} → ${p.n}번`)].join(', ') + '을 분산 번호로 넣었어요', 4500);
+    toast(`꿈에서 번호 ${items.length}개를 계산했어요`);
   };
   paintGrid();
 
@@ -1517,7 +1590,7 @@
   function useDream(memos) {
     const nums = [...new Set(memos.flatMap((m) => m.numbers))];
     const text = memos.map((m) => m.transcript).join(' ');
-    const hm = haemong(text).map((f) => f.n).filter((n) => !nums.includes(n));
+    const hm = analyzeDream(text).items.map((it) => it.n).filter((n) => !nums.includes(n));
     loadPicks(nums, hm);
     $('dreamText').value = text;
     Sound.dreamChime(); show('draw', true); scrollTo({ top: 0 });
@@ -1552,7 +1625,7 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('settings').hidden = true; } });
 
   // 테스트용
-  window.__dreamLotto = { extractNumbers, haemong, makeGames: (g) => makeGames(g), pick, DB, Sleep, Rec, show };
+  window.__dreamLotto = { extractNumbers, analyzeDream, makeGames: (g) => makeGames(g), pick, DB, Sleep, Rec, show };
 })();
 </script>
 </body>
