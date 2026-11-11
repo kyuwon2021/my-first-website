@@ -362,7 +362,7 @@
 
 <div id="app">
   <header class="top">
-    <a class="icon-btn" href="index.html" aria-label="홈으로"><svg class="i"><use href="#i-back"/></svg></a>
+    <a class="icon-btn" id="backBtn" href="index.html" aria-label="뒤로"><svg class="i"><use href="#i-back"/></svg></a>
     <h1>꿈속 로또</h1>
     <button class="icon-btn" id="muteBtn" aria-label="소리 끄기"><svg class="i"><use href="#i-vol"/></svg></button>
   </header>
@@ -952,14 +952,31 @@
    *  탭
    * ===================================================== */
   const tabs = [...document.querySelectorAll('.tab')];
-  function show(view, quiet) {
+  // 탭마다 주소 끝(#dream, #draw, #memo, #box)을 바꿔 폰의 뒤로 가기가 이전 탭으로 돌아가게 한다
+  const VIEWS = ['dream', 'draw', 'memo', 'box'];
+  let current = '';
+  function show(view, quiet, fromHistory) {
+    if (!VIEWS.includes(view)) view = 'dream';
+    if (!fromHistory && current && current !== view) history.pushState(null, '', '#' + view);
+    else if (!current) history.replaceState(null, '', '#' + view);
+    current = view;
     document.querySelectorAll('.view').forEach((v) => { v.hidden = v.id !== 'v-' + view; });
     tabs.forEach((t) => { t.classList.toggle('on', t.dataset.view === view); t.setAttribute('aria-current', t.dataset.view === view ? 'page' : 'false'); });
     store.set('dl-tab', view);
     if (view === 'draw') requestAnimationFrame(() => Machine.resize());
+    if (inViewer()) $('backBtn').style.visibility = view === 'dream' ? 'hidden' : 'visible';
     if (!quiet) { Sound.init(); Sound.click(); scrollTo({ top: 0 }); }
   }
   tabs.forEach((t) => { t.onclick = () => show(t.dataset.view); });
+  addEventListener('popstate', () => {
+    // 열려 있는 창이 있으면 먼저 닫는다
+    if (!$('settings').hidden) { $('settings').hidden = true; history.pushState(null, '', '#' + current); return; }
+    show(location.hash.slice(1) || 'dream', true, true); scrollTo({ top: 0 });
+  });
+  // 위쪽 뒤로 버튼: 다른 탭이면 꿈 탭으로, 꿈 탭이면 홈 화면으로 (대화창 안에서는 홈이 없으니 숨김)
+  $('backBtn').onclick = (e) => {
+    if (current !== 'dream') { e.preventDefault(); show('dream'); }
+  };
 
   /* =====================================================
    *  설정 · 첫 실행 안내
@@ -1677,7 +1694,8 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
   paintMute();
 
   /* 시작 */
-  show(store.get('dl-tab', 'dream'), true);
+  show(VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : store.get('dl-tab', 'dream'), true);
+  if (inViewer()) $('backBtn').style.visibility = current === 'dream' ? 'hidden' : 'visible';
   renderMemos().then(() => checkMorning()).then((hasNew) => { if (hasNew) show('dream', true); });
   if (!store.get('dl-intro', 0)) setTimeout(openIntro, 400);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('settings').hidden = true; } });
