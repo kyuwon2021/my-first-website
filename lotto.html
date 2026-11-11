@@ -176,6 +176,7 @@
   .ball.dream { box-shadow: 0 0 0 2px var(--night), 0 0 0 4px var(--gold), inset -4px -5px 8px rgba(0,0,0,.25); }
   .ball.dream::after { content: ""; position: absolute; right: -2px; top: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); border: 2px solid var(--night); }
   .ball.hit { outline: 2.5px solid #fff; outline-offset: 2px; }
+  .ball.spread { outline: 1.5px dashed var(--ink); outline-offset: 2px; }
   .ball.miss { filter: grayscale(.9) brightness(.6); }
   .ball.drop { animation: drop .55s cubic-bezier(.3,1.6,.5,1) both; }
 
@@ -449,7 +450,7 @@
 
     <!-- 기록 -->
     <section class="view" id="v-memo" hidden>
-      <h2>꿈 기록</h2>
+      <h2>기록</h2>
       <div class="list" id="memos" style="margin-top:0"></div>
     </section>
 
@@ -1220,6 +1221,9 @@
    *  번호 고르기
    * ===================================================== */
   const pick = new Map(); // n -> 'sure' | 'maybe'
+  store.get('dl-pick', []).forEach(([n, v]) => pick.set(n, v));
+  $('dreamText').value = store.get('dl-dream', '');
+  $('dreamText').addEventListener('input', () => store.set('dl-dream', $('dreamText').value));
   let games = store.get('dl-games', 5);
   let pickMode = 'sure';
   document.querySelectorAll('.seg button').forEach((b) => {
@@ -1243,6 +1247,7 @@
     grid.appendChild(b);
   }
   function paintGrid() {
+    store.set('dl-pick', [...pick]);
     [...grid.children].forEach((b) => {
       const s = pick.get(+b.dataset.n); b.classList.toggle('sure', s === 'sure'); b.classList.toggle('maybe', s === 'maybe');
       b.setAttribute('aria-pressed', s ? 'true' : 'false');
@@ -1520,7 +1525,11 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
     if (drawing) return;
     Sound.init(); drawing = true; $('drawBtn').disabled = true;
     const fast = $('fast').checked, list = makeGames(games);
-    $('results').innerHTML = ''; $('resultActions').hidden = true; lastResults = [];
+    $('resultActions').hidden = true; lastResults = [];
+    const runTs = Date.now(), grp = document.createElement('div');
+    grp.className = 'list'; grp.style.marginTop = '0';
+    grp.innerHTML = `<div class="day num">${fmtWhen(runTs)} · ${list.length}게임</div>`;
+    $('results').prepend(grp);
     if (innerWidth < 860) $('machine').scrollIntoView({ behavior: 'smooth', block: 'center' });
     await wait(fast ? 100 : 400);
     for (let g = 0; g < list.length; g++) {
@@ -1544,13 +1553,15 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
       tray.innerHTML = game.nums.map((n) => ballHTML(n, dreamSet.has(n) ? 'dream' : '')).join('');
       Sound.small();
       lastResults.push({ label, ...game });
-      addRow($('results'), label, game.nums, dreamSet);
+      addRow(grp, label, game.nums, dreamSet);
       await wait(fast ? 300 : 900);
     }
     $('gameLabel').textContent = `${list.length}게임 완성`;
     Sound.fanfare(); FX.confetti(innerWidth / 2, innerHeight * .7, 120, Math.PI * 2, 0, 700); FX.flash('win');
     $('resultActions').hidden = false;
     saveToBox(lastResults);
+    runs.unshift({ kind: 'run', id: runTs, ts: runTs, text: $('dreamText').value.trim(), picks: [...pick], games: lastResults.map((r) => ({ nums: r.nums, dream: [...r.sure, ...r.maybe] })) });
+    runs = runs.slice(0, 40); store.set('dl-runs', runs); renderMemos();
     drawing = false; $('drawBtn').disabled = false;
   };
 
@@ -1579,6 +1590,7 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
    *  번호함 · 당첨 확인
    * ===================================================== */
   let box = store.get('dl-box', []);
+  let runs = store.get('dl-runs', []);
   function saveToBox(results) {
     const ts = Date.now();
     results.forEach((r) => box.unshift({ id: ts + Math.random(), ts, nums: r.nums, dream: [...r.sure, ...r.maybe] }));
@@ -1643,8 +1655,10 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
     const list = (await DB.all()).sort((a, b) => b.ts - a.ts);
     const el = $('memos'); el.innerHTML = '';
     $('memoDot').hidden = !list.some((m) => !m.seen);
-    if (!list.length) { el.innerHTML = `<div class="empty">${icon('moon', 'lg')}<span>꿈 모드에서 남긴 기록이 여기 모여요</span></div>`; return list; }
-    for (const m of list) {
+    const all = [...list, ...runs].sort((a, b) => b.ts - a.ts);
+    if (!all.length) { el.innerHTML = `<div class="empty">${icon('moon', 'lg')}<span>꿈 기록과 추첨 기록이 여기 모여요</span></div>`; return list; }
+    for (const m of all) {
+      if (m.kind === 'run') { el.appendChild(runCard(m)); continue; }
       const d = document.createElement('div'); d.className = 'memo' + (m.seen ? '' : ' new');
       let src = '';
       if (m.audio) { src = URL.createObjectURL(m.audio); audioURLs.push(src); }
@@ -1667,6 +1681,28 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
       el.appendChild(d);
     }
     return list;
+  }
+  function runCard(r) {
+    const d = document.createElement('div'); d.className = 'memo';
+    const sure = r.picks.filter(([, v]) => v === 'sure').map(([n]) => n), maybe = r.picks.filter(([, v]) => v === 'maybe').map(([n]) => n);
+    d.innerHTML = `
+      <div class="head"><span class="when num">${icon('balls')}${fmtWhen(r.ts)} · 추첨 ${r.games.length}게임</span>
+        <button class="icon-btn" data-act="del" aria-label="추첨 기록 삭제">${icon('trash')}</button></div>
+      ${r.text ? `<p class="said">“${esc(r.text)}”</p>` : ''}
+      ${r.picks.length ? `<div class="balls">${sure.map((n) => ballHTML(n, 'sm dream')).join('')}${maybe.map((n) => ballHTML(n, 'sm spread')).join('')}</div>` : '<p class="said">꿈 번호 없이 자동 추첨</p>'}
+      <div class="list games" style="margin-top:0"></div>
+      <button class="btn sm" data-act="again" style="justify-self:start">${icon('balls')}이 번호로 다시 추첨</button>`;
+    const gl = d.querySelector('.games');
+    r.games.forEach((g, i) => addRow(gl, String.fromCharCode(65 + i), g.nums, new Set(g.dream)));
+    d.querySelector('[data-act=del]').onclick = async () => {
+      if (await ask('이 추첨 기록을 지울까요?')) { runs = runs.filter((x) => x.id !== r.id); store.set('dl-runs', runs); renderMemos(); }
+    };
+    d.querySelector('[data-act=again]').onclick = () => {
+      Sound.init(); pick.clear(); r.picks.forEach(([n, v]) => pick.set(n, v));
+      $('dreamText').value = r.text; store.set('dl-dream', r.text); paintGrid();
+      show('draw', true); $('drawBtn').click();
+    };
+    return d;
   }
   function useDream(memos) {
     const nums = [...new Set(memos.flatMap((m) => m.numbers))];
