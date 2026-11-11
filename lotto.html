@@ -1194,7 +1194,7 @@
     spoken.forEach((n) => { if (!pick.has(n)) pick.set(n, 'maybe'); });
     Sound.dreamChime(); paintGrid();
     const r = $('haemongBtn').getBoundingClientRect(); FX.sparkle(r.left + r.width / 2, r.top, 12);
-    toast([...found.map((f) => `${f.w} ${f.n}`), ...spoken.map((n) => `${n}`)].join(' · ') + ' 분산으로 추가', 4000);
+    toast([...found.map((f) => `${f.w} → ${f.n}번`), ...spoken.map((n) => `${n}번`)].join(', ') + '을 분산 번호로 넣었어요', 4500);
   };
   paintGrid();
 
