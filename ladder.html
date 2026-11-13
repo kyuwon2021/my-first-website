@@ -2,958 +2,632 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>두근두근 사다리</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f7f4ee">
+<title>사다리게임</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* 레이아웃: 모임 테이블 위 종이 사다리. 화면은 따뜻한 종이색으로 조용하게, 색은 사다리 판의 사인펜 선과 결과 공개에만 쓴다 */
   :root {
-    --bg1: #fff4d6;
-    --bg2: #ffd9e8;
-    --ink: #3b2a5a;
-    --muted: #8a7aa6;
-    --card: #ffffff;
-    --line: #c9b8ff;
-    --accent: #7c4dff;
-    --accent2: #ff4f9a;
-    --win: #ffb300;
-    --lose: #6b7280;
-    --shadow: 0 6px 0 rgba(59, 42, 90, .15), 0 12px 28px rgba(59, 42, 90, .12);
-    --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    color-scheme: light;
+    --paper: #f7f4ee;
+    --card: #fdfbf7;
+    --raised: #efe9df;
+    --line: rgba(31, 27, 22, .10);
+    --ink: #1f1b16;
+    --ink-2: #5e554a;
+    --muted: #776e62;
+    --accent: #c8372a;
+    --on-accent: #ffffff;
+    --tape: #eadfc4;
+    --grid: rgba(64, 104, 150, .10);
+    --hand: "Gaegu", "IBM Plex Sans KR", sans-serif;
+    --body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    --ease: cubic-bezier(.22, 1, .36, 1);
+    --step--1: clamp(13px, .3vw + 12px, 14px);
+    --step-0: clamp(15px, .4vw + 14px, 16px);
+    --step-1: clamp(18px, 1vw + 15px, 22px);
+    --step-2: clamp(28px, 3vw + 20px, 40px);
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; }
-  body {
-    min-height: 100vh;
-    font-family: "Jua", system-ui, sans-serif;
-    color: var(--ink);
-    background: radial-gradient(circle at 15% 10%, #fff 0, transparent 35%),
-                linear-gradient(160deg, var(--bg1), var(--bg2));
-    background-attachment: fixed;
-    overflow-x: hidden;
-  }
-  button { font-family: inherit; cursor: pointer; }
-  input { font-family: inherit; }
+  body { min-height: 100vh; background: var(--paper); color: var(--ink); font: 400 var(--step-0)/1.6 var(--body); word-break: keep-all; overflow-wrap: anywhere; overflow-x: hidden; }
+  h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.25; text-wrap: balance; }
+  p { margin: 0; text-wrap: pretty; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
-  #app { max-width: 980px; margin: 0 auto; padding: 16px 16px 48px; transition: filter .3s; }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-  header h1 { margin: 0; font-size: clamp(26px, 6vw, 42px); font-weight: 400; letter-spacing: 1px; }
-  header h1 .wiggle { display: inline-block; animation: wiggle 1.6s ease-in-out infinite; }
-  .home-link { color: var(--muted); font-size: 14px; text-decoration: none; }
-  .icon-btn {
-    border: 0; background: var(--card); border-radius: 999px; width: 48px; height: 48px;
-    font-size: 22px; box-shadow: var(--shadow); flex: none;
-  }
-  .icon-btn:active { transform: translateY(3px); }
+  #app { max-width: 980px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 8px 48px; transition: filter .3s; }
+  .top { display: flex; align-items: center; gap: 8px; height: 64px; }
+  .top h1 { flex: 1; font: 700 var(--step-2)/1 var(--hand); letter-spacing: .5px; }
+  .icon-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: var(--ink-2); text-decoration: none; transition: background-color .15s var(--ease); }
+  .icon-btn:hover { background: var(--raised); }
+  .icon-btn .i { width: 20px; height: 20px; }
 
-  .panel { background: var(--card); border-radius: 22px; padding: 18px; box-shadow: var(--shadow); }
-  .count-bar { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 16px; font-size: 22px; }
-  .count-bar button {
-    width: 44px; height: 44px; border-radius: 50%; border: 0; font-size: 26px; color: #fff;
-    background: var(--accent); box-shadow: 0 4px 0 #5530c0;
-  }
-  .count-bar button:active { transform: translateY(3px); box-shadow: 0 1px 0 #5530c0; }
-  .count-bar b { font-size: 34px; min-width: 40px; text-align: center; color: var(--accent); font-weight: 400; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); font-weight: 500; transition: background-color .15s var(--ease), transform .15s var(--ease); }
+  .btn:hover { background: var(--raised); }
+  .btn:active { transform: scale(.97); }
+  .btn.primary { background: var(--ink); border-color: transparent; color: var(--paper); }
+  .btn.primary:hover { background: #3a332b; }
+  .btn.big { min-height: 52px; padding: 0 28px; font-size: var(--step-1); border-radius: 12px; }
+  .btn:disabled { opacity: .4; pointer-events: none; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .hint { color: var(--muted); font-size: var(--step--1); }
 
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
-  .col h2 { margin: 0 0 8px; font-size: 20px; font-weight: 400; }
-  .col h2 small { color: var(--muted); font-size: 13px; }
-  .entry { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; animation: popIn .25s ease-out both; }
-  .entry input {
-    flex: 1; min-width: 0; height: 44px; border: 2px solid #eee4ff; border-radius: 14px;
-    padding: 0 12px; font-size: 18px; color: var(--ink); background: #fbf9ff; outline: none;
-  }
-  .entry input:focus { border-color: var(--accent); background: #fff; }
-  .char-pick {
-    width: 44px; height: 44px; border-radius: 14px; border: 0; font-size: 26px; flex: none;
-    font-family: var(--emoji); line-height: 1;
-  }
-  .type-btn {
-    flex: none; height: 44px; border: 0; border-radius: 14px; padding: 0 10px; font-size: 15px; color: #fff;
-    background: var(--win); min-width: 76px;
-  }
-  .type-btn.lose { background: var(--lose); }
-  .helpers { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-  .chip {
-    border: 0; border-radius: 999px; padding: 8px 14px; font-size: 15px;
-    background: #f1ebff; color: var(--accent);
-  }
-  .chip:active { transform: translateY(2px); }
-  .opts { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin: 16px 0 4px; font-size: 16px; }
-  .opts label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .opts input { width: 20px; height: 20px; accent-color: var(--accent); }
+  /* 설정 화면 */
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+  .count { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+  .count h2 { font-size: var(--step-1); }
+  .stepper { display: flex; align-items: center; gap: 12px; }
+  .stepper button { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); display: grid; place-items: center; }
+  .stepper button:hover { background: var(--raised); }
+  .stepper b { min-width: 48px; text-align: center; font: 700 32px/1 var(--hand); font-variant-numeric: tabular-nums; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+  @media (max-width: 680px) { .cols { grid-template-columns: minmax(0, 1fr); gap: 24px; } .panel { padding: 20px 16px; } }
+  .col h2 { font-size: var(--step-0); margin-bottom: 12px; }
+  .col h2 small { font-weight: 400; color: var(--muted); margin-left: 8px; font-size: var(--step--1); }
+  .entries { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .entry { display: flex; align-items: center; gap: 8px; }
+  .entry input { flex: 1; width: 100%; min-width: 0; height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; background: var(--paper); outline: none; transition: border-color .15s var(--ease); }
+  .entry input:focus { border-color: var(--ink-2); background: var(--card); }
+  .token-btn { width: 44px; height: 44px; flex: none; padding: 0; border: 0; border-radius: 50%; background: none; }
+  .token-btn img, .token img { width: 100%; height: 100%; display: block; }
+  .kind { flex: none; min-width: 64px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-weight: 500; font-size: var(--step--1); }
+  .kind.win { color: var(--accent); border-color: rgba(200, 55, 42, .4); background: rgba(200, 55, 42, .06); }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); font-size: var(--step--1); }
+  .chip:hover { background: var(--raised); }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .toggle { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; color: var(--ink-2); }
+  .toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .toggle span.sw { position: relative; width: 40px; height: 24px; border-radius: 12px; background: var(--raised); border: 1px solid var(--line); flex: none; transition: background-color .15s var(--ease); }
+  .toggle span.sw::after { content: ""; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--card); box-shadow: 0 1px 2px rgba(0,0,0,.15); transition: transform .15s var(--ease); }
+  .toggle input:checked + span.sw { background: var(--ink); }
+  .toggle input:checked + span.sw::after { transform: translateX(16px); }
+  .toggle input:focus-visible + span.sw { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .start { display: flex; justify-content: flex-end; margin-top: 24px; }
+  @media (max-width: 680px) { .start .btn { width: 100%; } }
 
-  .big-btn {
-    display: block; margin: 18px auto 0; border: 0; border-radius: 20px; padding: 14px 34px;
-    font-size: 24px; color: #fff; background: linear-gradient(135deg, var(--accent2), var(--accent));
-    box-shadow: 0 6px 0 #5530c0; animation: pulse 1.8s ease-in-out infinite;
-  }
-  .big-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #5530c0; }
-
-  /* ---------- 게임 화면 ---------- */
-  #game .hint { text-align: center; color: var(--muted); margin: 0 0 8px; font-size: 16px; }
-  .scroller { overflow-x: auto; overflow-y: visible; padding: 4px 0 8px; -webkit-overflow-scrolling: touch; }
+  /* 게임 화면: 모눈종이 위 사인펜 사다리 */
+  #game .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; min-height: 44px; }
+  #game .bar p { color: var(--ink-2); }
+  .board { background-color: #fffdf8; background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 24px 24px; border: 1px solid var(--line); border-radius: 16px; padding: 16px 8px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .scroller { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .stage { margin: 0 auto; }
-  .row { display: flex; }
-  .row > * { flex: 1 1 0; min-width: 0; }
-  .player {
-    border: 0; background: none; padding: 4px 2px 6px; display: flex; flex-direction: column;
-    align-items: center; gap: 2px; color: var(--ink);
-  }
-  .player .char {
-    font-family: var(--emoji); font-size: 34px; line-height: 1; width: 52px; height: 52px;
-    display: grid; place-items: center; border-radius: 50%; background: var(--c);
-    box-shadow: 0 4px 0 rgba(0,0,0,.12); animation: bob 1.2s ease-in-out infinite;
-    animation-delay: var(--d);
-  }
-  .player:hover .char { transform: scale(1.1); }
-  .player .nm { font-size: 14px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .player.running .char { opacity: .3; animation: none; }
-  .player.done .char { animation: none; filter: saturate(.6); }
-  .player.done.won .char { filter: none; box-shadow: 0 0 0 3px var(--win), 0 4px 0 rgba(0,0,0,.12); }
+  .lane { display: flex; }
+  .lane > * { flex: 1 1 0; min-width: 0; }
+  .player { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 2px 8px; border: 0; background: none; transition: opacity .2s var(--ease), transform .15s var(--ease); }
+  .player .token { width: 48px; height: 48px; }
+  .player:hover:not(:disabled) { transform: translateY(-2px); }
+  .player .nm { font: 700 20px/1.1 var(--hand); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player.running { opacity: .25; }
+  .player.done { opacity: .55; }
   .player:disabled { cursor: default; }
-
   #board { display: block; width: 100%; }
 
-  .result {
-    margin: 0 3px; perspective: 600px; height: 74px;
-  }
-  .flip { position: relative; width: 100%; height: 100%; transition: transform .6s cubic-bezier(.2,1.4,.4,1); transform-style: preserve-3d; }
-  .result.open .flip { transform: rotateY(180deg); }
-  .face {
-    position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
-    border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 4px; text-align: center; box-shadow: 0 4px 0 rgba(0,0,0,.12);
-  }
-  .face.front { background: linear-gradient(135deg, #b39dff, var(--accent)); color: #fff; font-size: 30px; }
-  .face.back { transform: rotateY(180deg); background: #fff; font-size: 15px; line-height: 1.15; word-break: keep-all; overflow: hidden; }
-  .result.win .face.back { background: linear-gradient(135deg, #fff3b0, #ffc94d); }
-  .result.lose .face.back { background: linear-gradient(135deg, #e5e7eb, #9ca3af); color: #fff; }
-  .face.back .who { font-size: 12px; opacity: .8; margin-top: 2px; }
-  .face.back .ic { font-family: var(--emoji); font-size: 20px; }
+  .result { position: relative; height: 72px; margin: 0 4px; border-radius: 8px; overflow: hidden; }
+  .result .val { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px; text-align: center;
+    font: 700 19px/1.1 var(--hand); background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+  .result .val small { font: 400 12px/1.2 var(--body); color: var(--muted); }
+  .result.win .val { color: var(--accent); border-color: rgba(200,55,42,.35); }
+  .result.lose .val { color: var(--muted); }
+  /* 결과를 가린 종이 테이프 (고유 표시) */
+  .tape { position: absolute; inset: 6px -4px; background: var(--tape); opacity: .96; transform: rotate(-2deg);
+    clip-path: polygon(0 6%, 4% 0, 9% 7%, 15% 1%, 22% 6%, 30% 0, 38% 5%, 46% 1%, 55% 6%, 63% 0, 71% 6%, 79% 1%, 87% 6%, 94% 0, 100% 5%, 100% 95%, 95% 100%, 88% 94%, 80% 100%, 72% 95%, 64% 100%, 56% 94%, 47% 100%, 39% 95%, 31% 100%, 23% 94%, 15% 100%, 8% 95%, 0 100%);
+    display: grid; place-items: center; color: rgba(94, 85, 74, .55); font: 700 24px/1 var(--hand); transition: transform .5s var(--ease), opacity .5s var(--ease); }
+  .result:nth-child(even) .tape { transform: rotate(1.5deg); }
+  .result.open .tape { transform: translate(18px, -64px) rotate(-14deg); opacity: 0; }
 
-  .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
-  .btn {
-    border: 0; border-radius: 16px; padding: 12px 18px; font-size: 17px; background: var(--card); color: var(--ink);
-    box-shadow: 0 4px 0 rgba(59,42,90,.18);
-  }
-  .btn.primary { background: var(--accent2); color: #fff; box-shadow: 0 4px 0 #c22c6e; }
-  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(59,42,90,.18); }
-  .btn:disabled { opacity: .45; pointer-events: none; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .controls .sp { flex: 1; }
+  @media (max-width: 560px) { .controls .sp { display: none; } .controls .btn { flex: 1 1 calc(50% - 4px); } }
 
-  /* ---------- 효과 ---------- */
-  #fx { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
-  #flash { position: fixed; inset: 0; pointer-events: none; z-index: 40; opacity: 0; }
-  #flash.win { animation: flashWin .9s ease-out; }
-  #flash.lose { animation: flashLose 1.1s ease-out; }
-  body.shake #app { animation: shake .6s cubic-bezier(.36,.07,.19,.97); }
-  body.gray #app { filter: grayscale(1) brightness(.85); }
+  /* 결과 팝업 · 결과표 */
+  .scrim { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(31, 27, 22, .42); }
+  .card { position: relative; width: min(360px, 100%); background: var(--card); border-radius: 20px; padding: 32px 24px 24px; text-align: center; display: grid; gap: 12px; justify-items: center;
+    box-shadow: 0 16px 48px rgba(31, 27, 22, .2); animation: rise .35s var(--ease); }
+  .card .token { width: 88px; height: 88px; }
+  .card.win .token { animation: hop .6s var(--ease) 2; }
+  .card.lose .token { filter: grayscale(.6); animation: droop .6s var(--ease) both; }
+  .card .who { color: var(--ink-2); }
+  .stamp { padding: 4px 16px; border: 3px solid currentColor; border-radius: 8px; font: 700 34px/1.1 var(--hand); transform: rotate(-6deg); animation: stamp .4s var(--ease) .1s both; }
+  .card.win .stamp { color: var(--accent); }
+  .card.lose .stamp { color: var(--muted); }
+  .card .prize { font: 700 30px/1.15 var(--hand); }
+  .summary { width: min(440px, 100%); text-align: left; justify-items: stretch; max-height: 86vh; overflow: auto; }
+  .summary h3 { font-size: var(--step-1); }
+  .sum { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 10px; }
+  .sum:nth-child(odd) { background: var(--paper); }
+  .sum .token { width: 32px; height: 32px; }
+  .sum .n { flex: 1; min-width: 0; font: 700 20px/1.2 var(--hand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sum .r { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+  .sum.win .r { color: var(--accent); }
+  .sum.lose .r { color: var(--muted); }
 
-  /* ---------- 팝업 ---------- */
-  .modal {
-    position: fixed; inset: 0; z-index: 45; display: none; align-items: center; justify-content: center;
-    padding: 16px; background: rgba(40, 20, 70, .45); backdrop-filter: blur(3px);
-  }
-  .modal.show { display: flex; }
-  .pop {
-    position: relative; width: min(380px, 100%); background: #fff; border-radius: 28px; padding: 28px 22px 22px;
-    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.3); animation: popUp .5s cubic-bezier(.2,1.6,.4,1);
-  }
-  .pop.win { background: linear-gradient(160deg, #fffbe6, #ffe08a); }
-  .pop.lose { background: linear-gradient(160deg, #f3f4f6, #cbd5e1); }
-  .pop-char { font-family: var(--emoji); font-size: 84px; line-height: 1; display: inline-block; position: relative; }
-  .pop.win .pop-char { animation: jump .6s ease-in-out infinite; }
-  .pop.lose .pop-char { animation: wobble .9s ease-in-out infinite; }
-  .pop-char .tear { position: absolute; font-size: 30px; right: -18px; top: -6px; animation: drip 1s ease-in infinite; }
-  .pop-name { font-size: 22px; margin-top: 10px; }
-  .pop-result { font-size: 34px; margin: 6px 0 4px; word-break: keep-all; }
-  .pop-stamp {
-    display: inline-block; margin: 6px 0 14px; padding: 4px 18px; border-radius: 12px; font-size: 40px;
-    transform: rotate(-8deg);
-  }
-  .pop.win .pop-stamp { color: #fff; background: var(--accent2); animation: stampIn .5s .15s cubic-bezier(.2,1.8,.4,1) both; }
-  .pop.lose .pop-stamp { color: #ef4444; border: 4px solid #ef4444; animation: slam .45s .1s cubic-bezier(.5,0,.75,0) both; }
-  .pop .btn { margin-top: 4px; }
-  .rays {
-    position: absolute; inset: -60px; z-index: -1; pointer-events: none; border-radius: 50%;
-    background: repeating-conic-gradient(rgba(255,200,40,.35) 0 10deg, transparent 10deg 20deg);
-    animation: spin 8s linear infinite; mask: radial-gradient(circle, #000 30%, transparent 70%);
-    -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%);
-  }
+  #fx { position: fixed; inset: 0; pointer-events: none; z-index: 70; }
+  #flash { position: fixed; inset: 0; pointer-events: none; z-index: 65; opacity: 0; }
+  #flash.win { animation: flashWin .8s var(--ease); }
+  #flash.lose { animation: flashLose 1s var(--ease); }
+  body.shake #app { animation: shake .55s cubic-bezier(.36,.07,.19,.97); }
+  body.gray #app { filter: grayscale(1); }
 
-  .summary { width: min(460px, 100%); max-height: 86vh; overflow: auto; }
-  .summary h2 { margin: 0 0 12px; font-weight: 400; font-size: 28px; }
-  .sum-row {
-    display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 14px; margin-bottom: 6px;
-    background: #f4f1fb; text-align: left; animation: popIn .3s ease-out both;
-  }
-  .sum-row.win { background: linear-gradient(90deg, #fff3b0, #ffd76a); }
-  .sum-row .e { font-family: var(--emoji); font-size: 28px; }
-  .sum-row .n { flex: 1; font-size: 18px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sum-row .r { font-size: 18px; text-align: right; }
-  .sum-row.lose .r { color: var(--lose); }
-
-  [hidden] { display: none !important; }
-
-  @keyframes bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
-  @keyframes wiggle { 0%,100% { transform: rotate(0) } 25% { transform: rotate(-12deg) } 75% { transform: rotate(12deg) } }
-  @keyframes pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.05) } }
-  @keyframes popIn { from { opacity: 0; transform: scale(.8) } to { opacity: 1; transform: scale(1) } }
-  @keyframes popUp { from { opacity: 0; transform: scale(.3) rotate(-10deg) } to { opacity: 1; transform: scale(1) } }
-  @keyframes jump { 0%,100% { transform: translateY(0) scale(1) } 30% { transform: translateY(-26px) scale(1.05,.95) } 60% { transform: translateY(0) scale(1.1,.9) } }
-  @keyframes wobble { 0%,100% { transform: rotate(0) } 25% { transform: rotate(-10deg) translateX(-4px) } 75% { transform: rotate(10deg) translateX(4px) } }
-  @keyframes drip { from { transform: translateY(0); opacity: 1 } to { transform: translateY(40px); opacity: 0 } }
-  @keyframes stampIn { from { transform: scale(3) rotate(-30deg); opacity: 0 } to { transform: scale(1) rotate(-8deg); opacity: 1 } }
-  @keyframes slam { from { transform: scale(4) rotate(10deg); opacity: 0 } to { transform: scale(1) rotate(-8deg); opacity: 1 } }
-  @keyframes spin { to { transform: rotate(360deg) } }
-  @keyframes shake {
-    10%,90% { transform: translate(-2px, 1px) } 20%,80% { transform: translate(5px, -2px) }
-    30%,50%,70% { transform: translate(-9px, 3px) } 40%,60% { transform: translate(9px, -3px) }
-  }
-  @keyframes flashWin { 0% { opacity: .95; background: radial-gradient(circle, #fff 0%, #ffe066 40%, rgba(255,180,0,0) 75%) } 100% { opacity: 0 } }
-  @keyframes flashLose { 0% { opacity: .9; background: radial-gradient(circle, rgba(0,0,0,0) 20%, rgba(20,20,30,.85) 90%) } 100% { opacity: 0 } }
-
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
-  }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px) scale(.98) } to { opacity: 1; transform: none } }
+  @keyframes hop { 0%, 100% { transform: none } 40% { transform: translateY(-14px) } }
+  @keyframes droop { to { transform: rotate(-10deg) translateY(4px) } }
+  @keyframes stamp { from { opacity: 0; transform: scale(1.8) rotate(-6deg) } to { opacity: 1; transform: rotate(-6deg) } }
+  @keyframes shake { 15%, 85% { transform: translateX(-3px) } 30%, 70% { transform: translateX(6px) } 50% { transform: translateX(-8px) } }
+  @keyframes flashWin { 0% { opacity: .9; background: radial-gradient(circle, rgba(255,250,235,.95) 0%, rgba(255,250,235,0) 70%) } 100% { opacity: 0 } }
+  @keyframes flashLose { 0% { opacity: .8; background: radial-gradient(circle, rgba(0,0,0,0) 30%, rgba(31,27,22,.45) 100%) } 100% { opacity: 0 } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="m22 9-6 6M16 9l6 6"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
+  <symbol id="i-ff" viewBox="0 0 24 24"><path d="m13 19 9-7-9-7v14ZM2 19l9-7-9-7v14Z"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+</defs></svg>
+
 <div id="app">
-  <header>
-    <div>
-      <a class="home-link" href="index.html">← 홈으로</a>
-      <h1><span class="wiggle">🪜</span> 두근두근 사다리</h1>
-    </div>
-    <button class="icon-btn" id="muteBtn" title="소리 켜기/끄기" aria-label="소리 켜기/끄기">🔊</button>
+  <header class="top">
+    <a class="icon-btn" href="index.html" aria-label="홈으로"><svg class="i"><use href="#i-back"/></svg></a>
+    <h1>사다리게임</h1>
+    <button class="icon-btn" id="muteBtn" aria-label="소리 끄기"><svg class="i"><use href="#i-vol"/></svg></button>
   </header>
 
-  <!-- 설정 화면 -->
+  <!-- 설정 -->
   <section id="setup" class="panel">
-    <div class="count-bar">
-      <span>인원</span>
-      <button id="minus" aria-label="인원 줄이기">−</button>
-      <b id="count">4</b>
-      <button id="plus" aria-label="인원 늘리기">+</button>
-      <span>명</span>
+    <div class="count">
+      <h2>몇 명이 하나요</h2>
+      <div class="stepper">
+        <button id="minus" aria-label="한 명 빼기"><svg class="i"><use href="#i-minus"/></svg></button>
+        <b id="count" class="num">4</b>
+        <button id="plus" aria-label="한 명 더하기"><svg class="i"><use href="#i-plus"/></svg></button>
+      </div>
     </div>
     <div class="cols">
       <div class="col">
-        <h2>🙋 참가자 <small>캐릭터를 누르면 바뀌어요</small></h2>
-        <div id="nameList"></div>
+        <h2>참가자<small>얼굴을 누르면 동물이 바뀌어요</small></h2>
+        <div class="entries" id="nameList"></div>
       </div>
       <div class="col">
-        <h2>🎁 상품 / 벌칙 <small>버튼으로 당첨·꽝 구분</small></h2>
-        <div id="prizeList"></div>
-        <div class="helpers">
-          <button class="chip" id="presetOne">🏆 1명만 당첨</button>
-          <button class="chip" id="presetBomb">💣 1명만 꽝</button>
-          <button class="chip" id="presetFill">빈칸은 꽝으로</button>
-          <button class="chip" id="presetClear">🧹 비우기</button>
+        <h2>상품과 벌칙<small>왼쪽 칸으로 당첨·꽝을 정해요</small></h2>
+        <div class="entries" id="prizeList"></div>
+        <div class="presets">
+          <button class="chip" id="presetOne">한 명만 당첨</button>
+          <button class="chip" id="presetBomb">한 명만 꽝</button>
+          <button class="chip" id="presetFill">빈칸은 꽝</button>
+          <button class="chip" id="presetClear">모두 비우기</button>
         </div>
       </div>
     </div>
     <div class="opts">
-      <label><input type="checkbox" id="optHide" checked> 🙈 사다리 숨기기 (지나간 길만 보여요)</label>
-      <label><input type="checkbox" id="optShuffle" checked> 🔀 결과 위치 섞기</label>
+      <label class="toggle"><input type="checkbox" id="optHide" checked><span class="sw"></span>가로줄 숨기기<span class="hint">지나간 길만 보여요</span></label>
+      <label class="toggle"><input type="checkbox" id="optShuffle" checked><span class="sw"></span>결과 위치 섞기</label>
     </div>
-    <button class="big-btn" id="startBtn">사다리 만들기!</button>
+    <div class="start"><button class="btn primary big" id="startBtn">사다리 만들기</button></div>
   </section>
 
-  <!-- 게임 화면 -->
+  <!-- 게임 -->
   <section id="game" hidden>
-    <p class="hint" id="hint">캐릭터를 눌러서 출발! 🏁</p>
-    <div class="panel" style="padding:12px 8px">
+    <div class="bar"><p id="hint">얼굴을 누르면 출발해요</p></div>
+    <div class="board">
       <div class="scroller">
         <div class="stage" id="stage">
-          <div class="row" id="topRow"></div>
+          <div class="lane" id="topRow"></div>
           <canvas id="board"></canvas>
-          <div class="row" id="bottomRow"></div>
+          <div class="lane" id="bottomRow"></div>
         </div>
       </div>
     </div>
     <div class="controls">
-      <button class="btn primary" id="allBtn">🚀 한 번에 결과 보기</button>
-      <button class="btn" id="sumBtn" disabled>📋 결과표</button>
-      <button class="btn" id="reshuffleBtn">🔄 사다리 다시 만들기</button>
-      <button class="btn" id="backBtn">✏️ 처음으로</button>
+      <button class="btn primary" id="allBtn"><svg class="i"><use href="#i-ff"/></svg>한 번에 결과 보기</button>
+      <button class="btn" id="sumBtn" disabled><svg class="i"><use href="#i-list"/></svg>결과표</button>
+      <span class="sp"></span>
+      <button class="btn" id="reshuffleBtn"><svg class="i"><use href="#i-redo"/></svg>다시 만들기</button>
+      <button class="btn" id="backBtn"><svg class="i"><use href="#i-edit"/></svg>참가자 고치기</button>
     </div>
   </section>
 </div>
 
 <div id="flash"></div>
 <canvas id="fx"></canvas>
-
-<div class="modal" id="popModal">
-  <div class="pop" id="pop"></div>
-</div>
-<div class="modal" id="sumModal">
-  <div class="pop summary" id="summary"></div>
-</div>
+<div class="scrim" id="popModal" hidden><div class="card" id="pop" role="dialog" aria-live="assertive"></div></div>
+<div class="scrim" id="sumModal" hidden><div class="card summary" id="summary" role="dialog" aria-label="결과표"></div></div>
 
 <script>
 (() => {
   'use strict';
-
-  /* =====================================================
-   *  기본 데이터
-   * ===================================================== */
-  const CHARS = ['🐶','🐱','🐰','🦊','🐻','🐼','🐸','🐷','🐵','🐯','🐨','🐹','🐧','🦁','🐮','🐔','🦄','🐙','🦖','👻'];
-  const COLORS = ['#ff6b6b','#4dabf7','#51cf66','#fcc419','#cc5de8','#ff922b','#20c997','#f06595','#5c7cfa','#94d82d','#22b8cf','#e8590c'];
-  const SOFT   = ['#ffe3e3','#d0ebff','#d3f9d8','#fff3bf','#f3d9fa','#ffe8cc','#c3fae8','#ffdeeb','#dbe4ff','#e9fac8','#c5f6fa','#ffd8a8'];
-  const MIN = 2, MAX = 12, ROWS = 12;
-
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const icon = (id) => `<svg class="i" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+  document.querySelectorAll('svg.i').forEach((s) => s.setAttribute('aria-hidden', 'true'));
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 무시 */ } }
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 저장 불가 */ } },
   };
 
-  const saved = store.get('ladder-setup', null);
+  /* =====================================================
+   *  동물 얼굴 토큰 (직접 그린 SVG)
+   * ===================================================== */
+  const ANIMALS = ['cat', 'rabbit', 'bear', 'dog', 'fox', 'pig', 'frog', 'chick', 'mouse', 'panda', 'tiger', 'koala'];
+  const ANIMAL_KO = { cat: '고양이', rabbit: '토끼', bear: '곰', dog: '강아지', fox: '여우', pig: '돼지', frog: '개구리', chick: '병아리', mouse: '쥐', panda: '판다', tiger: '호랑이', koala: '코알라' };
+  // 사인펜 세트 색
+  const PENS = ['#d6402f', '#2f6fd6', '#2f9a5a', '#e07a1f', '#7a4fc9', '#1f9aa0', '#d64f86', '#8a5a2b', '#2d3f7a', '#6f8a1f', '#b23aa8', '#4a4540'];
+  function faceSVG(a, c) {
+    const ink = '#1f1b16', lt = 'rgba(255,255,255,.55)', dk = 'rgba(0,0,0,.22)';
+    let back = '', front = '', head = c, eyes = true, mouth = true;
+    switch (a) {
+      case 'cat': back = `<path d="M9 22 12 5l10 9ZM39 22 36 5l-10 9Z" fill="${c}"/><path d="M12.5 16 14 9l4.5 4.5ZM35.5 16 34 9l-4.5 4.5Z" fill="${lt}"/>`; front = `<path d="M8 29h7M8 32l7-1M40 29h-7M40 32l-7-1" stroke="${ink}" stroke-width="1" opacity=".4"/>`; break;
+      case 'rabbit': back = `<ellipse cx="18" cy="9" rx="4.5" ry="10" fill="${c}"/><ellipse cx="30" cy="9" rx="4.5" ry="10" fill="${c}"/><ellipse cx="18" cy="10" rx="2" ry="6.5" fill="${lt}"/><ellipse cx="30" cy="10" rx="2" ry="6.5" fill="${lt}"/>`; break;
+      case 'bear': back = `<circle cx="12" cy="14" r="6" fill="${c}"/><circle cx="36" cy="14" r="6" fill="${c}"/><circle cx="12" cy="14" r="3" fill="${lt}"/><circle cx="36" cy="14" r="3" fill="${lt}"/>`; front = `<ellipse cx="24" cy="33" rx="6" ry="4.5" fill="${lt}"/><ellipse cx="24" cy="31.5" rx="2.2" ry="1.6" fill="${ink}"/>`; mouth = false; break;
+      case 'dog': front = `<ellipse cx="10" cy="25" rx="5" ry="9.5" fill="${c}" transform="rotate(14 10 25)"/><ellipse cx="10" cy="25" rx="5" ry="9.5" fill="${dk}" transform="rotate(14 10 25)"/><ellipse cx="38" cy="25" rx="5" ry="9.5" fill="${c}" transform="rotate(-14 38 25)"/><ellipse cx="38" cy="25" rx="5" ry="9.5" fill="${dk}" transform="rotate(-14 38 25)"/><ellipse cx="24" cy="31" rx="2.6" ry="1.9" fill="${ink}"/>`; break;
+      case 'fox': back = `<path d="M8 21 11 4l11 10ZM40 21 37 4 26 14Z" fill="${c}"/><path d="M11.5 15 12.5 8l5 5ZM36.5 15 35.5 8l-5 5Z" fill="${ink}" opacity=".35"/>`; front = `<path d="M9.5 28c4 7 9 9 14.5 9s10.5-2 14.5-9c-5 1-9 0-14.5-1-5.5 1-9.5 2-14.5 1Z" fill="#fff" opacity=".85"/><circle cx="24" cy="31" r="1.8" fill="${ink}"/>`; mouth = false; break;
+      case 'pig': back = `<path d="M10 17 13 8l7 6ZM38 17l-3-9-7 6Z" fill="${c}"/>`; front = `<ellipse cx="24" cy="32" rx="6.5" ry="4.5" fill="${lt}"/><ellipse cx="22" cy="32" rx="1.2" ry="1.6" fill="${ink}" opacity=".7"/><ellipse cx="26" cy="32" rx="1.2" ry="1.6" fill="${ink}" opacity=".7"/>`; mouth = false; break;
+      case 'frog': back = `<circle cx="16" cy="14" r="6.5" fill="${c}"/><circle cx="32" cy="14" r="6.5" fill="${c}"/>`; front = `<circle cx="16" cy="14" r="4" fill="#fff"/><circle cx="32" cy="14" r="4" fill="#fff"/><circle cx="16.5" cy="14.5" r="2" fill="${ink}"/><circle cx="32.5" cy="14.5" r="2" fill="${ink}"/><path d="M16 31q8 6 16 0" stroke="${ink}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`; eyes = false; mouth = false; break;
+      case 'chick': back = `<path d="M22 12q2-7 4 0M25 12q3-6 5 1" stroke="${c}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`; front = `<path d="M20.5 30.5h7l-3.5 4Z" fill="#f2a516"/>`; mouth = false; break;
+      case 'mouse': back = `<circle cx="11" cy="15" r="8" fill="${c}"/><circle cx="37" cy="15" r="8" fill="${c}"/><circle cx="11" cy="15" r="4.5" fill="${lt}"/><circle cx="37" cy="15" r="4.5" fill="${lt}"/>`; front = `<circle cx="24" cy="31" r="1.8" fill="${ink}"/>`; break;
+      case 'panda': head = '#f7f4ee'; back = `<circle cx="12" cy="14" r="6" fill="${c}"/><circle cx="36" cy="14" r="6" fill="${c}"/>`; front = `<ellipse cx="18.5" cy="26" rx="4.5" ry="5.5" fill="${c}" transform="rotate(-20 18.5 26)"/><ellipse cx="29.5" cy="26" rx="4.5" ry="5.5" fill="${c}" transform="rotate(20 29.5 26)"/><ellipse cx="24" cy="31.5" rx="2.2" ry="1.6" fill="${ink}"/>`; break;
+      case 'tiger': back = `<circle cx="12.5" cy="15" r="5.5" fill="${c}"/><circle cx="35.5" cy="15" r="5.5" fill="${c}"/>`; front = `<path d="M24 13v5M19 14l1.5 4M29 14l-1.5 4M10 26h4M10 29.5h4M38 26h-4M38 29.5h-4" stroke="${ink}" stroke-width="1.8" stroke-linecap="round" opacity=".45"/><ellipse cx="24" cy="31" rx="2.2" ry="1.6" fill="${ink}"/>`; break;
+      case 'koala': back = `<circle cx="10" cy="18" r="8.5" fill="${c}"/><circle cx="38" cy="18" r="8.5" fill="${c}"/><circle cx="10" cy="18" r="5" fill="${lt}"/><circle cx="38" cy="18" r="5" fill="${lt}"/>`; front = `<ellipse cx="24" cy="30" rx="3.6" ry="4.6" fill="${ink}" opacity=".85"/>`; mouth = false; break;
+    }
+    const eye = eyes ? `<circle cx="18.5" cy="25" r="3.2" fill="#fff"/><circle cx="29.5" cy="25" r="3.2" fill="#fff"/><circle cx="19" cy="25.5" r="1.8" fill="${ink}"/><circle cx="30" cy="25.5" r="1.8" fill="${ink}"/>` : '';
+    const mo = mouth ? `<path d="M21.5 34q2.5 2 5 0" stroke="${ink}" stroke-width="1.5" fill="none" stroke-linecap="round"/>` : '';
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">${back}<circle cx="24" cy="27" r="15" fill="${head}"/>${a === 'panda' ? `<circle cx="24" cy="27" r="15" fill="none" stroke="${c}" stroke-opacity=".25"/>` : ''}${front}${eye}${mo}</svg>`;
+  }
+  const faceURL = (a, c) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(faceSVG(a, c));
+  const faceIMG = {};
+  const faceImage = (a, c) => { const k = a + c; if (!faceIMG[k]) { const im = new Image(); im.src = faceURL(a, c); faceIMG[k] = im; } return faceIMG[k]; };
+  const tokenHTML = (a, c, label) => `<span class="token"><img src="${faceURL(a, c)}" alt="${esc(label || ANIMAL_KO[a])}"></span>`;
+
+  /* =====================================================
+   *  상태
+   * ===================================================== */
+  const MIN = 2, MAX = 12, ROWS = 12;
+  const saved = store.get('ladder-setup2', null);
   const S = {
-    n: saved?.n || 4,
-    names: saved?.names || [],
-    chars: saved?.chars || [],
-    prizes: saved?.prizes || ['치킨 🍗', '꽝', '꽝', '커피 쏘기 ☕'],
-    lose: saved?.lose || [false, true, true, false],
+    n: saved?.n || 4, names: saved?.names || [], animals: saved?.animals || [],
+    prizes: saved?.prizes || ['치킨', '꽝', '꽝', '커피 쏘기'], lose: saved?.lose || [false, true, true, false],
   };
   for (let i = 0; i < MAX; i++) {
     if (S.names[i] == null) S.names[i] = '';
-    if (!S.chars[i]) S.chars[i] = CHARS[i % CHARS.length];
+    if (!S.animals[i]) S.animals[i] = ANIMALS[i % ANIMALS.length];
     if (S.prizes[i] == null) S.prizes[i] = '';
     if (S.lose[i] == null) S.lose[i] = true;
   }
-  const save = () => store.set('ladder-setup', S);
+  const save = () => store.set('ladder-setup2', S);
 
   /* =====================================================
-   *  사운드 (Web Audio로 직접 합성 — 외부 파일 없음)
+   *  소리 (Web Audio로 합성)
    * ===================================================== */
   const Sound = {
     ctx: null, master: null, muted: store.get('ladder-muted', false),
     init() {
       if (!this.ctx) {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        this.ctx = new AC();
-        const comp = this.ctx.createDynamicsCompressor();
-        this.master = this.ctx.createGain();
-        this.master.gain.value = 0.8;
-        this.master.connect(comp).connect(this.ctx.destination);
+        const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+        this.ctx = new AC(); const comp = this.ctx.createDynamicsCompressor();
+        this.master = this.ctx.createGain(); this.master.gain.value = .8; this.master.connect(comp).connect(this.ctx.destination);
       }
       if (this.ctx.state === 'suspended') this.ctx.resume();
     },
     ok() { return this.ctx && !this.muted; },
     tone(freq, dur, o = {}) {
       if (!this.ok()) return;
-      const { type = 'sine', vol = 0.2, when = 0, slideTo = null, attack = 0.008, vibrato = 0, filter = 0 } = o;
-      const c = this.ctx, t = c.currentTime + when;
-      const osc = c.createOscillator(), g = c.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, t);
+      const { type = 'sine', vol = .2, when = 0, slideTo = null, attack = .008, vibrato = 0, filter = 0 } = o;
+      const c = this.ctx, t = c.currentTime + when, osc = c.createOscillator(), g = c.createGain();
+      osc.type = type; osc.frequency.setValueAtTime(freq, t);
       if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
-      if (vibrato) {
-        const lfo = c.createOscillator(), lg = c.createGain();
-        lfo.frequency.value = 6; lg.gain.value = vibrato;
-        lfo.connect(lg).connect(osc.frequency);
-        lfo.start(t); lfo.stop(t + dur + 0.1);
-      }
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(vol, t + attack);
-      g.gain.setValueAtTime(vol, t + Math.max(attack, dur * 0.7));
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      let node = osc;
-      if (filter) {
-        const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = filter;
-        osc.connect(f); node = f;
-      }
-      node.connect(g).connect(this.master);
-      osc.start(t); osc.stop(t + dur + 0.05);
+      if (vibrato) { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = 6; lg.gain.value = vibrato; l.connect(lg).connect(osc.frequency); l.start(t); l.stop(t + dur + .1); }
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + attack);
+      g.gain.setValueAtTime(vol, t + Math.max(attack, dur * .7)); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      let node = osc; if (filter) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = filter; osc.connect(f); node = f; }
+      node.connect(g).connect(this.master); osc.start(t); osc.stop(t + dur + .05);
     },
     noise(dur, o = {}) {
       if (!this.ok()) return;
-      const { when = 0, vol = 0.2, freq = 1200, q = 0.8 } = o;
-      const c = this.ctx, t = c.currentTime + when;
-      const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
-      const d = buf.getChannelData(0);
+      const { when = 0, vol = .2, freq = 1200, q = .8 } = o, c = this.ctx, t = c.currentTime + when;
+      const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate), d = buf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
-      const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
-      src.buffer = buf; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
-      g.gain.value = vol;
-      src.connect(f).connect(g).connect(this.master);
-      src.start(t);
+      const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+      s.buffer = buf; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; g.gain.value = vol; s.connect(f).connect(g).connect(this.master); s.start(t);
     },
-    click()  { this.tone(660, 0.08, { type: 'triangle', vol: 0.2 }); this.tone(990, 0.07, { type: 'triangle', vol: 0.15, when: 0.04 }); },
-    boop(up) { this.tone(up ? 520 : 420, 0.12, { type: 'sine', vol: 0.2, slideTo: up ? 820 : 260 }); },
-    step(i)  { this.tone(i % 2 ? 380 : 470, 0.045, { type: 'square', vol: 0.035, filter: 1800 }); },
-    turn()   { this.tone(600, 0.12, { type: 'sine', vol: 0.18, slideTo: 1100 }); },
-    go()     { [392, 523, 659].forEach((f, i) => this.tone(f, 0.12, { type: 'square', vol: 0.08, when: i * 0.08, filter: 2500 })); },
-    drumroll(dur = 0.8) {
-      const n = Math.floor(dur / 0.045);
-      for (let i = 0; i < n; i++) this.noise(0.05, { when: i * 0.045, vol: 0.12 + 0.35 * (i / n), freq: 900 + Math.random() * 300 });
-      this.noise(0.4, { when: dur, vol: 0.5, freq: 4000, q: 0.4 }); // 심벌
+    click() { this.tone(660, .08, { type: 'triangle', vol: .18 }); this.tone(990, .07, { type: 'triangle', vol: .12, when: .04 }); },
+    boop(up) { this.tone(up ? 520 : 420, .12, { vol: .18, slideTo: up ? 820 : 260 }); },
+    step(i) { this.tone(i % 2 ? 380 : 470, .045, { type: 'square', vol: .03, filter: 1800 }); },
+    turn() { this.tone(600, .12, { vol: .16, slideTo: 1100 }); },
+    go() { [392, 523, 659].forEach((f, i) => this.tone(f, .12, { type: 'square', vol: .07, when: i * .08, filter: 2500 })); },
+    peel() { this.noise(.35, { vol: .25, freq: 2600, q: .6 }); },
+    drumroll(dur = .8) {
+      const n = Math.floor(dur / .045);
+      for (let i = 0; i < n; i++) this.noise(.05, { when: i * .045, vol: .1 + .3 * (i / n), freq: 900 + Math.random() * 300 });
+      this.noise(.4, { when: dur, vol: .45, freq: 4000, q: .4 });
     },
     win() {
-      const seq = [523, 659, 784, 1047, 784, 1047];
-      seq.forEach((f, i) => this.tone(f, 0.14, { type: 'square', vol: 0.1, when: i * 0.1, filter: 3000 }));
-      [523, 659, 784, 1047].forEach((f) => this.tone(f, 1.1, { type: 'triangle', vol: 0.12, when: 0.62, vibrato: 4 }));
-      for (let i = 0; i < 10; i++) this.tone(1500 + Math.random() * 1800, 0.12, { type: 'sine', vol: 0.06, when: 0.7 + i * 0.07 });
-      this.noise(0.6, { when: 0.6, vol: 0.25, freq: 6000, q: 0.3 });
+      [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone(f, .14, { type: 'square', vol: .09, when: i * .1, filter: 3000 }));
+      [523, 659, 784, 1047].forEach((f) => this.tone(f, 1.1, { type: 'triangle', vol: .11, when: .62, vibrato: 4 }));
+      for (let i = 0; i < 10; i++) this.tone(1500 + Math.random() * 1800, .12, { vol: .05, when: .7 + i * .07 });
     },
     lose() {
-      this.tone(160, 0.45, { type: 'sine', vol: 0.6, slideTo: 40 });       // 쿵!
-      this.noise(0.3, { vol: 0.4, freq: 200, q: 0.5 });
-      const notes = [392, 370, 349];                                        // 빠-밤-밤-바~암
-      notes.forEach((f, i) => this.tone(f, 0.38, { type: 'sawtooth', vol: 0.14, when: 0.35 + i * 0.4, filter: 1200, vibrato: 3 }));
-      this.tone(330, 1.2, { type: 'sawtooth', vol: 0.15, when: 0.35 + 1.2, filter: 1000, vibrato: 12, slideTo: 300 });
+      this.tone(160, .45, { vol: .55, slideTo: 40 }); this.noise(.3, { vol: .35, freq: 200, q: .5 });
+      [392, 370, 349].forEach((f, i) => this.tone(f, .38, { type: 'sawtooth', vol: .13, when: .35 + i * .4, filter: 1200, vibrato: 3 }));
+      this.tone(330, 1.2, { type: 'sawtooth', vol: .14, when: 1.55, filter: 1000, vibrato: 12, slideTo: 300 });
     },
-    miniWin()  { [784, 1047, 1319].forEach((f, i) => this.tone(f, 0.12, { type: 'triangle', vol: 0.12, when: i * 0.07 })); },
-    miniLose() { this.tone(300, 0.35, { type: 'sawtooth', vol: 0.1, slideTo: 140, filter: 900 }); },
+    miniWin() { [784, 1047, 1319].forEach((f, i) => this.tone(f, .12, { type: 'triangle', vol: .12, when: i * .07 })); },
+    miniLose() { this.tone(300, .35, { type: 'sawtooth', vol: .1, slideTo: 140, filter: 900 }); },
   };
 
   /* =====================================================
-   *  화면 효과 (색종이, 이모지 비)
+   *  화면 효과: 종이 꽃가루, 회색 조각
    * ===================================================== */
   const FX = {
     cv: $('fx'), ctx: null, parts: [], running: false, w: 0, h: 0,
-    resize() {
-      const dpr = window.devicePixelRatio || 1;
-      this.w = innerWidth; this.h = innerHeight;
-      this.cv.width = this.w * dpr; this.cv.height = this.h * dpr;
-      this.cv.style.width = this.w + 'px'; this.cv.style.height = this.h + 'px';
-      this.ctx = this.cv.getContext('2d');
-      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    },
+    resize() { const d = devicePixelRatio || 1; this.w = innerWidth; this.h = innerHeight; this.cv.width = this.w * d; this.cv.height = this.h * d; this.cv.style.width = this.w + 'px'; this.cv.style.height = this.h + 'px'; this.ctx = this.cv.getContext('2d'); this.ctx.setTransform(d, 0, 0, d, 0, 0); },
     start() {
-      if (this.running) return;
-      this.running = true;
-      let last = performance.now();
+      if (this.running) return; this.running = true; let last = performance.now();
       const loop = (now) => {
-        const dt = Math.min(0.05, (now - last) / 1000); last = now;
-        const c = this.ctx; c.clearRect(0, 0, this.w, this.h);
+        const dt = Math.min(.05, (now - last) / 1000); last = now; const c = this.ctx; c.clearRect(0, 0, this.w, this.h);
         this.parts = this.parts.filter((p) => {
-          p.life += dt;
-          p.vy += p.g * dt; p.vx *= p.drag; p.vy *= p.drag;
-          p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
-          if (p.wave) p.x += Math.sin(p.life * p.wave) * 0.6;
-          const a = Math.max(0, 1 - p.life / p.max);
-          c.save(); c.globalAlpha = a; c.translate(p.x, p.y); c.rotate(p.rot);
-          if (p.text) {
-            c.font = `${p.size}px ${getComputedStyle(document.documentElement).getPropertyValue('--emoji')}`;
-            c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(p.text, 0, 0);
-          } else if (p.shape === 'circle') {
-            c.fillStyle = p.color; c.beginPath(); c.arc(0, 0, p.size / 2, 0, Math.PI * 2); c.fill();
-          } else if (p.shape === 'star') {
-            c.fillStyle = p.color; star(c, p.size);
-          } else {
-            c.fillStyle = p.color; c.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2 * (0.6 + 0.4 * Math.abs(Math.sin(p.life * 8))));
-          }
-          c.restore();
-          return p.life < p.max && p.y < this.h + 80;
+          p.life += dt; p.vy += p.g * dt; p.vx *= p.drag; p.vy *= p.drag; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+          if (p.wave) p.x += Math.sin(p.life * p.wave) * .5;
+          const k = p.life / p.max; c.save(); c.globalAlpha = Math.max(0, 1 - k * k); c.translate(p.x, p.y); c.rotate(p.rot);
+          c.fillStyle = p.color;
+          if (p.shape === 'strip') { c.scale(1, Math.abs(Math.cos(p.life * 6)) + .15); c.fillRect(-p.size / 2, -p.size / 5, p.size, p.size / 2.5); }
+          else if (p.shape === 'dot') { c.beginPath(); c.arc(0, 0, p.size / 2.6, 0, 7); c.fill(); }
+          else { c.beginPath(); c.moveTo(-p.size / 2, -p.size / 3); c.lineTo(p.size / 2, -p.size / 4); c.lineTo(p.size / 3, p.size / 3); c.lineTo(-p.size / 3, p.size / 4); c.closePath(); c.fill(); }
+          c.restore(); return p.life < p.max && p.y < this.h + 60;
         });
-        if (this.parts.length) requestAnimationFrame(loop);
-        else { this.running = false; c.clearRect(0, 0, this.w, this.h); }
+        if (this.parts.length) requestAnimationFrame(loop); else { this.running = false; c.clearRect(0, 0, this.w, this.h); }
       };
       requestAnimationFrame(loop);
     },
-    confetti(x, y, count = 120, spread = Math.PI / 2.2, angle = -Math.PI / 2, power = 900) {
-      const palette = ['#ff4f9a','#7c4dff','#ffb300','#4dabf7','#51cf66','#ff6b6b','#fcc419'];
+    confetti(x, y, count = 100, spread = Math.PI / 2, angle = -Math.PI / 2, power = 900) {
       for (let i = 0; i < count; i++) {
-        const a = angle + (Math.random() - 0.5) * spread, v = power * (0.4 + Math.random() * 0.6);
-        this.parts.push({
-          x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 1100, drag: 0.985,
-          rot: Math.random() * 6, vr: (Math.random() - 0.5) * 14, size: 8 + Math.random() * 8,
-          color: palette[i % palette.length], shape: ['rect','rect','circle','star'][i % 4],
-          life: 0, max: 2.6 + Math.random() * 1.2,
-        });
+        const a = angle + (Math.random() - .5) * spread, v = power * (.4 + Math.random() * .6);
+        this.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 1000, drag: .985, rot: Math.random() * 6, vr: (Math.random() - .5) * 12, size: 8 + Math.random() * 8,
+          color: PENS[i % PENS.length], shape: i % 5 ? 'strip' : 'dot', life: 0, max: 2.6 + Math.random() });
       }
       this.start();
     },
-    bigWin() {
-      const { w, h } = this;
-      this.confetti(0, h, 110, Math.PI / 3, -Math.PI / 3, 1200);
-      this.confetti(w, h, 110, Math.PI / 3, -Math.PI * 2 / 3, 1200);
-      setTimeout(() => this.confetti(w / 2, h * 0.35, 120, Math.PI * 2, 0, 700), 250);
-      for (let i = 0; i < 18; i++) {
-        this.parts.push({
-          x: Math.random() * w, y: -30 - Math.random() * 200, vx: 0, vy: 120 + Math.random() * 120, g: 60, drag: 1,
-          rot: 0, vr: (Math.random() - 0.5) * 3, size: 28 + Math.random() * 16, wave: 3,
-          text: ['🎉','⭐','🎊','💰','✨','🏆'][i % 6], life: 0, max: 4,
-        });
-      }
+    bigWin() { this.confetti(0, this.h, 110, Math.PI / 3, -Math.PI / 3, 1200); this.confetti(this.w, this.h, 110, Math.PI / 3, -Math.PI * 2 / 3, 1200); },
+    gloom(n = 22) {
+      for (let i = 0; i < n; i++) this.parts.push({ x: Math.random() * this.w, y: -20 - Math.random() * 300, vx: (Math.random() - .5) * 50, vy: 80 + Math.random() * 120, g: 240, drag: 1,
+        rot: Math.random() * 6, vr: (Math.random() - .5) * 4, size: 14 + Math.random() * 14, wave: 3, color: i % 2 ? '#c9c2b6' : '#9a9083', shape: 'shard', life: 0, max: 4 });
       this.start();
     },
-    rain(emojis, count = 36) {
-      const { w } = this;
-      for (let i = 0; i < count; i++) {
-        this.parts.push({
-          x: Math.random() * w, y: -40 - Math.random() * 500, vx: (Math.random() - 0.5) * 30, vy: 160 + Math.random() * 160,
-          g: 250, drag: 1, rot: (Math.random() - 0.5), vr: (Math.random() - 0.5) * 2, size: 26 + Math.random() * 22,
-          wave: 2 + Math.random() * 2, text: emojis[i % emojis.length], life: 0, max: 5,
-        });
-      }
-      this.start();
-    },
-    flash(kind) {
-      const f = $('flash'); f.className = ''; void f.offsetWidth; f.className = kind;
-    },
+    flash(k) { const f = $('flash'); f.className = ''; void f.offsetWidth; f.className = k; },
     shake(gray) {
-      document.body.classList.remove('shake'); void document.body.offsetWidth;
-      document.body.classList.add('shake');
-      if (gray) document.body.classList.add('gray');
-      setTimeout(() => document.body.classList.remove('shake'), 650);
-      if (gray) setTimeout(() => document.body.classList.remove('gray'), 1400);
+      const b = document.body; b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); if (gray) b.classList.add('gray');
+      setTimeout(() => b.classList.remove('shake'), 600); if (gray) setTimeout(() => b.classList.remove('gray'), 1300);
     },
   };
-  function star(c, s) {
-    const r = s / 2; c.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const rr = i % 2 ? r * 0.45 : r, a = (i / 10) * Math.PI * 2 - Math.PI / 2;
-      i ? c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : c.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
-    }
-    c.closePath(); c.fill();
-  }
+  FX.resize();
 
   /* =====================================================
    *  설정 화면
    * ===================================================== */
-  const isLoseIdx = (i) => S.lose[i];
-  const prizeLabel = (i) => (S.prizes[i] || '').trim() || (S.lose[i] ? '꽝' : '당첨!');
-
+  const prizeLabel = (i) => (S.prizes[i] || '').trim() || (S.lose[i] ? '꽝' : '당첨');
   function renderSetup() {
     $('count').textContent = S.n;
-    const nl = $('nameList'), pl = $('prizeList');
-    nl.innerHTML = ''; pl.innerHTML = '';
+    const nl = $('nameList'), pl = $('prizeList'); nl.innerHTML = ''; pl.innerHTML = '';
     for (let i = 0; i < S.n; i++) {
       const row = document.createElement('div'); row.className = 'entry';
-      row.innerHTML = `<button class="char-pick" style="background:${SOFT[i % SOFT.length]}" aria-label="캐릭터 바꾸기">${S.chars[i]}</button>
-        <input maxlength="10" placeholder="참가자 ${i + 1}" value="${esc(S.names[i])}">`;
-      const [cb, inp] = row.children;
-      cb.onclick = () => {
-        Sound.init(); Sound.boop(true);
-        S.chars[i] = CHARS[(CHARS.indexOf(S.chars[i]) + 1) % CHARS.length];
-        cb.textContent = S.chars[i]; save();
-        cb.animate([{ transform: 'scale(1.4) rotate(-15deg)' }, { transform: 'scale(1)' }], { duration: 250 });
-      };
+      row.innerHTML = `<button class="token-btn" aria-label="${i + 1}번 참가자 동물 바꾸기"><img alt=""></button><input maxlength="10" aria-label="${i + 1}번 참가자 이름" placeholder="참가자 ${i + 1}">`;
+      const [tb, inp] = row.children, img = tb.firstElementChild;
+      const paint = () => { img.src = faceURL(S.animals[i], PENS[i % PENS.length]); img.alt = ANIMAL_KO[S.animals[i]]; };
+      paint(); inp.value = S.names[i];
+      tb.onclick = () => { Sound.init(); Sound.boop(true); S.animals[i] = ANIMALS[(ANIMALS.indexOf(S.animals[i]) + 1) % ANIMALS.length]; paint(); save(); };
       inp.oninput = () => { S.names[i] = inp.value; save(); };
       nl.appendChild(row);
-
       const pr = document.createElement('div'); pr.className = 'entry';
-      pr.innerHTML = `<button class="type-btn"></button><input maxlength="14" placeholder="예: 치킨, 꽝, 커피 쏘기">`;
-      const [tb, pin] = pr.children;
-      pin.value = S.prizes[i];
-      const paint = () => { tb.classList.toggle('lose', S.lose[i]); tb.textContent = S.lose[i] ? '💥 꽝' : '🎁 당첨'; };
-      paint();
-      tb.onclick = () => { Sound.init(); S.lose[i] = !S.lose[i]; Sound.boop(!S.lose[i]); paint(); save(); };
-      pin.oninput = () => {
-        S.prizes[i] = pin.value;
-        if (/꽝/.test(pin.value)) { S.lose[i] = true; paint(); }
-        save();
-      };
+      pr.innerHTML = `<button class="kind" aria-label="${i + 1}번 칸 당첨 또는 꽝"></button><input maxlength="14" aria-label="${i + 1}번 상품이나 벌칙" placeholder="예: 치킨, 꽝, 커피 쏘기">`;
+      const [kb, pin] = pr.children; pin.value = S.prizes[i];
+      const paintK = () => { kb.classList.toggle('win', !S.lose[i]); kb.textContent = S.lose[i] ? '꽝' : '당첨'; };
+      paintK();
+      kb.onclick = () => { Sound.init(); S.lose[i] = !S.lose[i]; Sound.boop(!S.lose[i]); paintK(); save(); };
+      pin.oninput = () => { S.prizes[i] = pin.value; if (/꽝/.test(pin.value)) { S.lose[i] = true; paintK(); } save(); };
       pl.appendChild(pr);
     }
   }
-
   $('minus').onclick = () => { Sound.init(); if (S.n > MIN) { S.n--; Sound.boop(false); renderSetup(); save(); } };
-  $('plus').onclick  = () => { Sound.init(); if (S.n < MAX) { S.n++; Sound.boop(true); renderSetup(); save(); } };
-  $('presetOne').onclick = () => {
-    Sound.init(); Sound.click();
-    for (let i = 0; i < S.n; i++) { S.lose[i] = i !== 0; S.prizes[i] = i === 0 ? (S.prizes[0] && !/꽝/.test(S.prizes[0]) ? S.prizes[0] : '당첨! 🎉') : '꽝'; }
-    renderSetup(); save();
-  };
-  $('presetBomb').onclick = () => {
-    Sound.init(); Sound.click();
-    for (let i = 0; i < S.n; i++) { S.lose[i] = i === 0; S.prizes[i] = i === 0 ? '꽝 (벌칙!) 💣' : '통과 😎'; }
-    renderSetup(); save();
-  };
-  $('presetFill').onclick = () => {
-    Sound.init(); Sound.click();
-    for (let i = 0; i < S.n; i++) if (!S.prizes[i].trim()) { S.prizes[i] = '꽝'; S.lose[i] = true; }
-    renderSetup(); save();
-  };
-  $('presetClear').onclick = () => {
-    Sound.init(); Sound.click();
-    for (let i = 0; i < S.n; i++) { S.prizes[i] = ''; S.lose[i] = true; }
-    renderSetup(); save();
-  };
-
-  const muteBtn = $('muteBtn');
-  const paintMute = () => { muteBtn.textContent = Sound.muted ? '🔇' : '🔊'; };
-  muteBtn.onclick = () => { Sound.init(); Sound.muted = !Sound.muted; store.set('ladder-muted', Sound.muted); paintMute(); Sound.click(); };
+  $('plus').onclick = () => { Sound.init(); if (S.n < MAX) { S.n++; Sound.boop(true); renderSetup(); save(); } };
+  $('presetOne').onclick = () => { Sound.init(); Sound.click(); for (let i = 0; i < S.n; i++) { S.lose[i] = i !== 0; S.prizes[i] = i === 0 ? (S.prizes[0] && !/꽝/.test(S.prizes[0]) ? S.prizes[0] : '당첨') : '꽝'; } renderSetup(); save(); };
+  $('presetBomb').onclick = () => { Sound.init(); Sound.click(); for (let i = 0; i < S.n; i++) { S.lose[i] = i === 0; S.prizes[i] = i === 0 ? '꽝 (벌칙)' : '통과'; } renderSetup(); save(); };
+  $('presetFill').onclick = () => { Sound.init(); Sound.click(); for (let i = 0; i < S.n; i++) if (!S.prizes[i].trim()) { S.prizes[i] = '꽝'; S.lose[i] = true; } renderSetup(); save(); };
+  $('presetClear').onclick = () => { Sound.init(); Sound.click(); for (let i = 0; i < S.n; i++) { S.prizes[i] = ''; S.lose[i] = true; } renderSetup(); save(); };
+  const paintMute = () => { $('muteBtn').innerHTML = icon(Sound.muted ? 'mute' : 'vol'); $('muteBtn').setAttribute('aria-label', Sound.muted ? '소리 켜기' : '소리 끄기'); };
+  $('muteBtn').onclick = () => { Sound.init(); Sound.muted = !Sound.muted; store.set('ladder-muted', Sound.muted); paintMute(); Sound.click(); };
   paintMute();
 
   /* =====================================================
    *  게임
    * ===================================================== */
-  const G = {
-    players: [],   // {name, char, color, soft}
-    results: [],   // {label, lose}
-    rungs: [],     // rungs[r][gap] = null | {j}
-    revealed: new Set(),
-    trails: [],    // {i, pts}
-    done: {},      // playerIdx -> resultIdx
-    active: null,
-    busy: false,
-  };
+  const G = { players: [], results: [], rungs: [], revealed: new Set(), trails: [], done: {}, active: null, busy: false };
   const board = $('board'), bctx = board.getContext('2d');
   let BW = 0, BH = 0;
+  const PADY = 12;
 
   function buildGame() {
     const n = S.n;
-    G.players = Array.from({ length: n }, (_, i) => ({
-      name: (S.names[i] || '').trim() || `참가자 ${i + 1}`,
-      char: S.chars[i], color: COLORS[i % COLORS.length], soft: SOFT[i % SOFT.length],
-    }));
-    G.results = Array.from({ length: n }, (_, i) => ({ label: prizeLabel(i), lose: isLoseIdx(i) }));
-    if ($('optShuffle').checked) {
-      for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [G.results[i], G.results[j]] = [G.results[j], G.results[i]]; }
-    }
+    G.players = Array.from({ length: n }, (_, i) => ({ name: (S.names[i] || '').trim() || `참가자 ${i + 1}`, animal: S.animals[i], color: PENS[i % PENS.length] }));
+    G.players.forEach((p) => faceImage(p.animal, p.color));
+    G.results = Array.from({ length: n }, (_, i) => ({ label: prizeLabel(i), lose: S.lose[i] }));
+    if ($('optShuffle').checked) for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [G.results[i], G.results[j]] = [G.results[j], G.results[i]]; }
     makeLadder();
   }
-
   function makeLadder() {
-    const n = G.players.length;
-    let ok = false;
+    const n = G.players.length; let ok = false;
     while (!ok) {
       G.rungs = [];
       for (let r = 0; r < ROWS; r++) {
         const row = [];
-        for (let c = 0; c < n - 1; c++) {
-          const prevUsed = c > 0 && row[c - 1];
-          row.push(!prevUsed && Math.random() < 0.42 ? { j: (Math.random() - 0.5) * 0.55 } : null);
-        }
+        for (let c = 0; c < n - 1; c++) row.push(!(c > 0 && row[c - 1]) && Math.random() < .42 ? { j: (Math.random() - .5) * .55, w: (Math.random() - .5) * 3 } : null);
         G.rungs.push(row);
       }
-      // 모든 칸 사이에 다리가 최소 2개는 있도록
-      ok = true;
-      for (let c = 0; c < n - 1; c++) if (G.rungs.filter((row) => row[c]).length < 2) ok = false;
+      ok = true; for (let c = 0; c < n - 1; c++) if (G.rungs.filter((row) => row[c]).length < 2) ok = false;
     }
     G.revealed = new Set(); G.trails = []; G.done = {}; G.active = null; G.busy = false;
   }
-
   function pathFor(start) {
-    let col = start;
-    const pts = [{ x: col, y: 0 }];
+    let col = start; const pts = [{ x: col, y: 0 }];
     for (let r = 0; r < ROWS; r++) {
-      const row = G.rungs[r];
-      let gap = -1, to = col;
-      if (row[col]) { gap = col; to = col + 1; }
-      else if (col > 0 && row[col - 1]) { gap = col - 1; to = col - 1; }
-      if (gap >= 0) {
-        const y = (r + 1 + row[gap].j) / (ROWS + 1);
-        pts.push({ x: col, y }, { x: to, y, rung: `${r}-${gap}` });
-        col = to;
-      }
+      const row = G.rungs[r]; let gap = -1, to = col;
+      if (row[col]) { gap = col; to = col + 1; } else if (col > 0 && row[col - 1]) { gap = col - 1; to = col - 1; }
+      if (gap >= 0) { const y = (r + 1 + row[gap].j) / (ROWS + 1); pts.push({ x: col, y }, { x: to, y, rung: `${r}-${gap}` }); col = to; }
     }
-    pts.push({ x: col, y: 1 });
-    return { pts, end: col };
+    pts.push({ x: col, y: 1 }); return { pts, end: col };
   }
-
-  // 논리 좌표 -> 픽셀
-  const PADY = 14;
-  const px = (p) => ({ x: (p.x + 0.5) * BW / G.players.length, y: PADY + p.y * (BH - PADY * 2) });
+  const px = (p) => ({ x: (p.x + .5) * BW / G.players.length, y: PADY + p.y * (BH - PADY * 2) });
 
   function layout() {
     const n = G.players.length; if (!n) return;
-    const stage = $('stage');
-    const wrapW = stage.parentElement.clientWidth;
-    const minCol = 62;
-    stage.style.width = Math.max(wrapW, n * minCol) + 'px';
-    BW = stage.clientWidth;
-    BH = Math.max(280, Math.min(520, innerHeight * 0.5));
-    const dpr = window.devicePixelRatio || 1;
-    board.width = BW * dpr; board.height = BH * dpr;
-    board.style.height = BH + 'px';
-    bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const stage = $('stage'); stage.style.width = Math.max(stage.parentElement.clientWidth, n * 64) + 'px';
+    BW = stage.clientWidth; BH = Math.max(280, Math.min(480, innerHeight * .48));
+    const d = devicePixelRatio || 1; board.width = BW * d; board.height = BH * d; board.style.height = BH + 'px'; bctx.setTransform(d, 0, 0, d, 0, 0);
     draw();
   }
-
-  function polyline(pts, color, width, limit = Infinity) {
-    const c = bctx;
-    c.strokeStyle = color; c.lineWidth = width; c.lineCap = 'round'; c.lineJoin = 'round';
-    c.beginPath();
-    let p0 = px(pts[0]); c.moveTo(p0.x, p0.y);
-    let left = limit, head = p0;
+  // 사인펜으로 그은 듯 살짝 휜 선
+  function pen(a, b, color, width, bend = 0) {
+    const c = bctx; c.strokeStyle = color; c.lineWidth = width; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(a.x, a.y); c.quadraticCurveTo((a.x + b.x) / 2 + (a.y === b.y ? 0 : bend), (a.y + b.y) / 2 + (a.y === b.y ? bend : 0), b.x, b.y); c.stroke();
+  }
+  function trail(pts, color, width, limit = Infinity) {
+    const c = bctx; c.strokeStyle = color; c.lineWidth = width; c.lineCap = 'round'; c.lineJoin = 'round';
+    c.beginPath(); let p0 = px(pts[0]); c.moveTo(p0.x, p0.y); let left = limit, head = p0;
     for (let k = 1; k < pts.length; k++) {
-      const p1 = px(pts[k]);
-      const seg = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+      const p1 = px(pts[k]), seg = Math.hypot(p1.x - p0.x, p1.y - p0.y);
       if (left >= seg) { c.lineTo(p1.x, p1.y); left -= seg; head = p1; p0 = p1; }
-      else {
-        const t = seg ? left / seg : 0;
-        head = { x: p0.x + (p1.x - p0.x) * t, y: p0.y + (p1.y - p0.y) * t, k };
-        c.lineTo(head.x, head.y); left = 0; break;
-      }
+      else { const t = seg ? left / seg : 0; head = { x: p0.x + (p1.x - p0.x) * t, y: p0.y + (p1.y - p0.y) * t }; c.lineTo(head.x, head.y); break; }
     }
-    c.stroke();
-    return head;
+    c.stroke(); return head;
   }
-  function pathLen(pts) {
-    let L = 0;
-    for (let k = 1; k < pts.length; k++) { const a = px(pts[k - 1]), b = px(pts[k]); L += Math.hypot(b.x - a.x, b.y - a.y); }
-    return L;
-  }
+  const pathLen = (pts) => { let L = 0; for (let k = 1; k < pts.length; k++) { const a = px(pts[k - 1]), b = px(pts[k]); L += Math.hypot(b.x - a.x, b.y - a.y); } return L; };
 
   function draw(now = performance.now()) {
-    const c = bctx, n = G.players.length;
-    c.clearRect(0, 0, BW, BH);
-    const hide = $('optHide').checked;
-    // 세로줄
-    for (let i = 0; i < n; i++) {
-      const a = px({ x: i, y: 0 }), b = px({ x: i, y: 1 });
-      c.strokeStyle = '#e4dcff'; c.lineWidth = 8; c.lineCap = 'round';
-      c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
-    }
-    // 가로줄
+    const c = bctx, n = G.players.length, hide = $('optHide').checked; c.clearRect(0, 0, BW, BH);
+    for (let i = 0; i < n; i++) pen(px({ x: i, y: 0 }), px({ x: i, y: 1 }), 'rgba(31,27,22,.82)', 3, (i % 2 ? 1 : -1) * 1.2);
     for (let r = 0; r < ROWS; r++) for (let g = 0; g < n - 1; g++) {
-      const rg = G.rungs[r][g]; if (!rg) continue;
-      if (hide && !G.revealed.has(`${r}-${g}`)) continue;
-      const y = (r + 1 + rg.j) / (ROWS + 1);
-      const a = px({ x: g, y }), b = px({ x: g + 1, y });
-      c.strokeStyle = '#cbbcff'; c.lineWidth = 7;
-      c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
+      const rg = G.rungs[r][g]; if (!rg || (hide && !G.revealed.has(`${r}-${g}`))) continue;
+      const y = (r + 1 + rg.j) / (ROWS + 1); pen(px({ x: g, y }), px({ x: g + 1, y }), 'rgba(31,27,22,.82)', 3, rg.w);
     }
-    // 숨김 모드: 안개 무늬
-    if (hide) {
-      c.fillStyle = 'rgba(180,160,255,.10)';
-      c.fillRect(0, PADY + (BH - PADY * 2) * 0.03, BW, (BH - PADY * 2) * 0.94);
-      c.font = `${Math.min(22, BW / n / 2.2)}px Jua, sans-serif`; c.fillStyle = 'rgba(124,77,255,.18)';
-      c.textAlign = 'center'; c.textBaseline = 'middle';
-      for (let i = 0; i < n - 1; i++) for (let r = 1; r < ROWS; r += 3) {
-        const p = px({ x: i + 0.5, y: (r + 1 + (i % 2) * 1.5) / (ROWS + 1) });
-        c.fillText('?', p.x, p.y);
-      }
-    }
-    // 완료된 길
-    for (const t of G.trails) polyline(t.pts, hexA(G.players[t.i].color, 0.55), 6);
-    // 진행 중인 길 + 캐릭터
+    c.globalAlpha = .85; for (const t of G.trails) trail(t.pts, G.players[t.i].color, 6); c.globalAlpha = 1;
     if (G.active) {
-      const a = G.active, pl = G.players[a.i];
-      c.shadowColor = pl.color; c.shadowBlur = 12;
-      const head = polyline(a.pts, pl.color, 8, a.dist);
-      c.shadowBlur = 0;
-      const bob = Math.sin(now / 70) * 3;
-      c.fillStyle = '#fff'; c.strokeStyle = pl.color; c.lineWidth = 4;
-      c.beginPath(); c.arc(head.x, head.y + bob, 21, 0, Math.PI * 2); c.fill(); c.stroke();
-      c.font = `26px ${getComputedStyle(document.documentElement).getPropertyValue('--emoji')}`;
-      c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(pl.char, head.x, head.y + bob + 1);
+      const a = G.active, pl = G.players[a.i], head = trail(a.pts, pl.color, 7, a.dist), img = faceImage(pl.animal, pl.color), s = 40;
+      const bob = Math.sin(now / 70) * 2.5;
+      c.fillStyle = 'rgba(31,27,22,.12)'; c.beginPath(); c.ellipse(head.x, head.y + s / 2 - 2, s / 3, 4, 0, 0, 7); c.fill();
+      if (img.complete) c.drawImage(img, head.x - s / 2, head.y - s / 2 - 4 + bob, s, s);
     }
-    // 시작/끝 점
-    for (let i = 0; i < n; i++) {
-      for (const y of [0, 1]) {
-        const p = px({ x: i, y });
-        c.fillStyle = y ? '#ff4f9a' : '#7c4dff';
-        c.beginPath(); c.arc(p.x, p.y, 6, 0, Math.PI * 2); c.fill();
-      }
-    }
-  }
-  function hexA(hex, a) {
-    const n = parseInt(hex.slice(1), 16);
-    return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`;
+    for (let i = 0; i < n; i++) for (const y of [0, 1]) { const p = px({ x: i, y }); c.fillStyle = '#1f1b16'; c.beginPath(); c.arc(p.x, p.y, 4, 0, 7); c.fill(); }
   }
 
   function renderRows() {
-    const top = $('topRow'), bot = $('bottomRow');
-    top.innerHTML = ''; bot.innerHTML = '';
+    const top = $('topRow'), bot = $('bottomRow'); top.innerHTML = ''; bot.innerHTML = '';
     G.players.forEach((p, i) => {
-      const b = document.createElement('button');
-      b.className = 'player';
-      b.style.setProperty('--c', p.soft);
-      b.style.setProperty('--d', `${(i * 0.13) % 1.2}s`);
-      b.innerHTML = `<span class="char">${p.char}</span><span class="nm">${esc(p.name)}</span>`;
-      b.onclick = () => startOne(i);
-      top.appendChild(b);
+      const b = document.createElement('button'); b.className = 'player'; b.setAttribute('aria-label', `${p.name} 출발`);
+      b.innerHTML = `${tokenHTML(p.animal, p.color, p.name)}<span class="nm">${esc(p.name)}</span>`;
+      b.onclick = () => startOne(i); top.appendChild(b);
     });
-    G.results.forEach(() => {
-      const d = document.createElement('div');
-      d.className = 'result';
-      d.innerHTML = `<div class="flip"><div class="face front">?</div><div class="face back"></div></div>`;
-      bot.appendChild(d);
-    });
+    G.results.forEach(() => { const d = document.createElement('div'); d.className = 'result'; d.innerHTML = '<div class="val"></div><div class="tape" aria-hidden="true">?</div>'; bot.appendChild(d); });
     updateButtons();
   }
-
   function updateButtons() {
     const total = G.players.length, cnt = Object.keys(G.done).length;
-    [...$('topRow').children].forEach((b, i) => {
-      b.disabled = G.busy || i in G.done;
-      b.classList.toggle('done', i in G.done);
-      b.classList.toggle('won', i in G.done && !G.results[G.done[i]].lose);
-      b.classList.toggle('running', G.active?.i === i);
-    });
-    $('allBtn').disabled = G.busy || cnt === total;
-    $('reshuffleBtn').disabled = G.busy;
-    $('backBtn').disabled = G.busy;
-    $('sumBtn').disabled = cnt === 0;
-    $('hint').textContent = cnt === total ? '모두 끝났어요! 결과표를 확인해 보세요 📋'
-      : G.busy ? '두근두근… 어디로 갈까? 👀' : '캐릭터를 눌러서 출발! 🏁';
+    [...$('topRow').children].forEach((b, i) => { b.disabled = G.busy || i in G.done; b.classList.toggle('done', i in G.done); b.classList.toggle('running', G.active?.i === i); });
+    $('allBtn').disabled = G.busy || cnt === total; $('reshuffleBtn').disabled = G.busy; $('backBtn').disabled = G.busy; $('sumBtn').disabled = cnt === 0;
+    $('hint').textContent = cnt === total ? '모두 끝났어요. 결과표에서 한눈에 볼 수 있어요' : G.busy ? '어디로 갈까요' : `얼굴을 누르면 출발해요 · ${total - cnt}명 남음`;
   }
 
   function run(i, speedMul = 1) {
     return new Promise((resolve) => {
-      const { pts, end } = pathFor(i);
-      G.active = { i, pts, dist: 0 };
-      updateButtons();
-      let last = performance.now(), stepAcc = 0, steps = 0, seenK = 0;
-      const speed = Math.max(300, BH * 0.95) * speedMul;
+      const { pts, end } = pathFor(i); G.active = { i, pts, dist: 0 }; updateButtons();
+      let last = performance.now(), acc = 0, steps = 0, seenK = 0; const speed = Math.max(300, BH * .95) * speedMul;
       const tick = (now) => {
-        const dt = Math.min(0.05, (now - last) / 1000); last = now;
-        const L = pathLen(pts);
-        G.active.dist += speed * dt;
-        stepAcc += speed * dt;
-        if (stepAcc > 30) { stepAcc = 0; Sound.step(steps++); }
-        // 지나간 다리 공개 + 꺾일 때 효과음
-        let acc = 0;
+        const dt = Math.min(.05, (now - last) / 1000); last = now; const L = pathLen(pts);
+        G.active.dist += speed * dt; acc += speed * dt; if (acc > 30) { acc = 0; Sound.step(steps++); }
+        let s = 0;
         for (let k = 1; k < pts.length; k++) {
-          const a = px(pts[k - 1]), b = px(pts[k]);
-          if (acc > G.active.dist) break;
-          if (pts[k].rung && acc <= G.active.dist) {
-            if (!G.revealed.has(pts[k].rung)) G.revealed.add(pts[k].rung);
-            if (k > seenK) { seenK = k; Sound.turn(); }
-          }
-          acc += Math.hypot(b.x - a.x, b.y - a.y);
+          const a = px(pts[k - 1]), b = px(pts[k]); if (s > G.active.dist) break;
+          if (pts[k].rung) { G.revealed.add(pts[k].rung); if (k > seenK) { seenK = k; Sound.turn(); } }
+          s += Math.hypot(b.x - a.x, b.y - a.y);
         }
         draw(now);
-        if (G.active.dist >= L) {
-          G.trails.push({ i, pts });
-          G.active = null;
-          draw(now);
-          resolve(end);
-        } else requestAnimationFrame(tick);
+        if (G.active.dist >= L) { G.trails.push({ i, pts }); G.active = null; draw(now); resolve(end); } else requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
     });
   }
-
   async function startOne(i) {
     if (G.busy || i in G.done) return;
-    Sound.init(); Sound.go();
-    G.busy = true;
+    Sound.init(); Sound.go(); G.busy = true;
     const end = await run(i, 1);
-    Sound.drumroll(0.7);
-    const card = $('bottomRow').children[end];
-    card.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12) rotate(-3deg)' }, { transform: 'scale(1.12) rotate(3deg)' }, { transform: 'scale(1)' }],
-      { duration: 700, iterations: 1 });
-    await wait(720);
-    reveal(i, end, true);
-    G.busy = false;
-    updateButtons();
+    Sound.drumroll(.7); await wait(720);
+    reveal(i, end, true); G.busy = false; updateButtons();
   }
-
   async function runAll() {
-    if (G.busy) return;
-    Sound.init(); Sound.go();
-    G.busy = true; updateButtons();
-    for (let i = 0; i < G.players.length; i++) {
-      if (i in G.done) continue;
-      const end = await run(i, 2.6);
-      reveal(i, end, false);
-      updateButtons();
-      await wait(300);
-    }
-    G.busy = false; updateButtons();
-    await wait(400);
-    showSummary();
+    if (G.busy) return; Sound.init(); Sound.go(); G.busy = true; updateButtons();
+    for (let i = 0; i < G.players.length; i++) { if (i in G.done) continue; const end = await run(i, 2.6); reveal(i, end, false); updateButtons(); await wait(300); }
+    G.busy = false; updateButtons(); await wait(400); showSummary();
   }
-
   function reveal(i, end, big) {
-    G.done[i] = end;
-    const res = G.results[end], p = G.players[i];
-    const card = $('bottomRow').children[end];
-    card.classList.add('open', res.lose ? 'lose' : 'win');
-    card.querySelector('.back').innerHTML =
-      `<span class="ic">${res.lose ? '💥' : '🎁'}</span><span>${esc(res.label)}</span><span class="who">${p.char} ${esc(p.name)}</span>`;
-    const rect = card.getBoundingClientRect();
+    G.done[i] = end; const res = G.results[end], p = G.players[i], cell = $('bottomRow').children[end];
+    cell.querySelector('.val').innerHTML = `<span>${esc(res.label)}</span><small>${esc(p.name)}</small>`;
+    cell.classList.add('open', res.lose ? 'lose' : 'win'); Sound.peel();
+    const r = cell.getBoundingClientRect();
     if (big) {
       showPop(p, res);
-      if (res.lose) {
-        Sound.lose(); FX.flash('lose'); FX.shake(true);
-        setTimeout(() => FX.rain(['💩','😭','💧','☁️','💀','🌧️']), 200);
-      } else {
-        Sound.win(); FX.flash('win'); FX.bigWin();
-      }
-    } else if (res.lose) {
-      Sound.miniLose(); FX.shake(false);
-      FX.rain(['💩','💧'], 6);
-    } else {
-      Sound.miniWin();
-      FX.confetti(rect.left + rect.width / 2, rect.top, 50, Math.PI / 1.5, -Math.PI / 2, 700);
-    }
+      if (res.lose) { Sound.lose(); FX.flash('lose'); FX.shake(true); setTimeout(() => FX.gloom(), 150); }
+      else { Sound.win(); FX.flash('win'); FX.bigWin(); }
+    } else if (res.lose) { Sound.miniLose(); FX.shake(false); }
+    else { Sound.miniWin(); FX.confetti(r.left + r.width / 2, r.top, 50, Math.PI / 1.5, -Math.PI / 2, 700); }
     updateButtons();
   }
-
   function showPop(p, res) {
-    const pop = $('pop');
-    pop.className = 'pop ' + (res.lose ? 'lose' : 'win');
-    pop.innerHTML = `
-      ${res.lose ? '' : '<div class="rays"></div>'}
-      <div class="pop-char">${p.char}${res.lose ? '<span class="tear">💧</span>' : ''}</div>
-      <div class="pop-name">${esc(p.name)} 님은…</div>
-      <div class="pop-stamp">${res.lose ? '꽝!' : '당첨!'}</div>
-      <div class="pop-result">${esc(res.label)}</div>
-      <button class="btn ${res.lose ? '' : 'primary'}" id="popOk">${res.lose ? '흑흑… 확인 😢' : '야호! 확인 🎉'}</button>`;
-    $('popModal').classList.add('show');
-    const ok = $('popOk'); ok.focus();
-    ok.onclick = closePop;
+    const pop = $('pop'); pop.className = 'card ' + (res.lose ? 'lose' : 'win');
+    pop.innerHTML = `${tokenHTML(p.animal, p.color, p.name)}<p class="who">${esc(p.name)}</p><div class="stamp">${res.lose ? '꽝' : '당첨'}</div>
+      ${/^(꽝|당첨)$/.test(res.label) ? '' : `<p class="prize">${esc(res.label)}</p>`}<button class="btn primary" id="popOk" style="margin-top:8px;min-width:140px">확인</button>`;
+    $('popModal').hidden = false; $('popOk').focus(); $('popOk').onclick = closePop;
   }
-  function closePop() {
-    Sound.click(); $('popModal').classList.remove('show');
-    if (Object.keys(G.done).length === G.players.length) setTimeout(showSummary, 300);
-  }
+  function closePop() { Sound.click(); $('popModal').hidden = true; if (Object.keys(G.done).length === G.players.length) setTimeout(showSummary, 300); }
   $('popModal').addEventListener('click', (e) => { if (e.target.id === 'popModal') closePop(); });
 
   function showSummary() {
-    const rows = G.players.map((p, i) => ({ p, i, res: i in G.done ? G.results[G.done[i]] : null }));
+    const rows = G.players.map((p, i) => ({ p, res: i in G.done ? G.results[G.done[i]] : null }));
     rows.sort((a, b) => (a.res && !a.res.lose ? 0 : 1) - (b.res && !b.res.lose ? 0 : 1));
-    $('summary').innerHTML = `
-      <h2>📋 결과표</h2>
-      ${rows.map((r, k) => `
-        <div class="sum-row ${r.res ? (r.res.lose ? 'lose' : 'win') : ''}" style="animation-delay:${k * 0.06}s">
-          <span class="e">${r.p.char}</span><span class="n">${esc(r.p.name)}</span>
-          <span class="r">${r.res ? (r.res.lose ? '💥 ' : '🎁 ') + esc(r.res.label) : '⏳ 아직'}</span>
-        </div>`).join('')}
-      <div class="controls">
-        <button class="btn primary" id="sumAgain">🔄 같은 멤버로 다시</button>
-        <button class="btn" id="sumClose">닫기</button>
-      </div>`;
-    $('sumModal').classList.add('show');
-    Sound.miniWin();
-    $('sumClose').onclick = () => { Sound.click(); $('sumModal').classList.remove('show'); };
-    $('sumAgain').onclick = () => { $('sumModal').classList.remove('show'); restart(); };
+    $('summary').innerHTML = `<h3>결과표</h3><div>${rows.map((r) => `<div class="sum ${r.res ? (r.res.lose ? 'lose' : 'win') : ''}">${tokenHTML(r.p.animal, r.p.color, r.p.name)}<span class="n">${esc(r.p.name)}</span>
+      <span class="r">${r.res ? icon(r.res.lose ? 'x' : 'gift') + esc(r.res.label) : '아직'}</span></div>`).join('')}</div>
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="sumClose">닫기</button><button class="btn primary" id="sumAgain">같은 사람들로 다시</button></div>`;
+    $('sumModal').hidden = false; Sound.miniWin();
+    $('sumClose').onclick = () => { Sound.click(); $('sumModal').hidden = true; };
+    $('sumAgain').onclick = () => { $('sumModal').hidden = true; restart(); };
   }
-  $('sumModal').addEventListener('click', (e) => { if (e.target.id === 'sumModal') $('sumModal').classList.remove('show'); });
+  $('sumModal').addEventListener('click', (e) => { if (e.target.id === 'sumModal') $('sumModal').hidden = true; });
+  function restart() { Sound.init(); Sound.boop(true); buildGame(); renderRows(); layout(); }
 
-  function restart() {
-    Sound.init(); Sound.boop(true);
-    buildGame(); renderRows(); layout();
-  }
-
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-
-  $('startBtn').onclick = () => {
-    Sound.init(); Sound.go();
-    $('setup').hidden = true; $('game').hidden = false;
-    buildGame(); renderRows(); layout();
-    scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  $('startBtn').onclick = () => { Sound.init(); Sound.go(); $('setup').hidden = true; $('game').hidden = false; buildGame(); renderRows(); layout(); scrollTo({ top: 0, behavior: 'smooth' }); };
   $('allBtn').onclick = runAll;
   $('sumBtn').onclick = () => { Sound.click(); showSummary(); };
   $('reshuffleBtn').onclick = restart;
-  $('backBtn').onclick = () => {
-    Sound.click();
-    $('game').hidden = true; $('setup').hidden = false; renderSetup();
-  };
+  $('backBtn').onclick = () => { Sound.click(); $('game').hidden = true; $('setup').hidden = false; renderSetup(); };
   $('optHide').onchange = () => draw();
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { if ($('popModal').classList.contains('show')) closePop(); $('sumModal').classList.remove('show'); }
-  });
-
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (!$('popModal').hidden) closePop(); $('sumModal').hidden = true; } });
   addEventListener('resize', () => { FX.resize(); if (!$('game').hidden) layout(); });
-  FX.resize();
   renderSetup();
+  window.__ladder = { G, S };
 })();
 </script>
 </body>
