@@ -162,6 +162,8 @@
 
   .machine-wrap { display: flex; flex-direction: column; align-items: center; }
   #machine { width: min(300px, 78vw); aspect-ratio: 1; max-width: 100%; display: block; }
+  body.m3d #machine { width: min(360px, 88vw); }
+  body.m3d .machine-base { display: none; }
   .machine-base { width: min(208px, 56vw); height: 24px; margin-top: -8px; border-radius: 0 0 16px 16px; background: linear-gradient(180deg, #232836, #151922); border: 1px solid var(--line); border-top: 0; }
   .game-label { margin: 16px 0 8px; min-height: 1.6em; color: var(--muted); font-size: var(--step--1); text-align: center; }
   .tray { display: flex; gap: 8px; justify-content: center; padding: 8px 10px; border-radius: 99px; background: rgba(0,0,0,.25); max-width: 100%; }
@@ -229,6 +231,11 @@
   .sheet { width: min(560px, 100%); max-height: 88vh; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-bottom: 0; border-radius: 22px 22px 0 0;
     padding: 18px max(18px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px)); animation: slideUp .3s cubic-bezier(.2,1,.3,1); }
   .sheet h3 { font-size: var(--step-1); margin-bottom: 8px; }
+  .sheet.share { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  #shareImg { width: 100%; max-width: 420px; justify-self: center; border-radius: 12px; border: 1px solid var(--line); }
+  .phone-row { display: flex; gap: 8px; }
+  .phone-row input { flex: 1; min-width: 0; height: 44px; border-radius: 8px; border: 1px solid var(--line); background: rgba(0,0,0,.2); padding: 0 12px; font: 500 var(--step-0) var(--font-num); outline: none; }
+  .phone-row input:focus { border-color: var(--muted); }
   .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-bottom: 1px solid var(--line); }
   .set-row:last-of-type { border-bottom: 0; }
   .set-row .lbl { display: flex; align-items: center; gap: 12px; }
@@ -356,6 +363,9 @@
     <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></symbol>
     <symbol id="i-snooze" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="m7 4 13 8-13 8V4Z"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
     <symbol id="i-keypad" viewBox="0 0 24 24"><circle cx="6" cy="6" r="1.2"/><circle cx="12" cy="6" r="1.2"/><circle cx="18" cy="6" r="1.2"/><circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/><circle cx="6" cy="18" r="1.2"/><circle cx="12" cy="18" r="1.2"/><circle cx="18" cy="18" r="1.2"/></symbol>
     <radialGradient id="g-moon" cx="35%" cy="35%" r="75%"><stop offset="0" stop-color="#fff6d6"/><stop offset=".55" stop-color="#f2c55c"/><stop offset="1" stop-color="#b97f1e"/></radialGradient>
   </defs>
@@ -442,6 +452,7 @@
           <div class="list" id="results"></div>
           <div class="row center" id="resultActions" style="margin-top:12px" hidden>
             <button class="btn sm" id="copyBtn"><svg class="i sm"><use href="#i-copy"/></svg>복사</button>
+            <button class="btn sm" id="shareBtn"><svg class="i sm"><use href="#i-share"/></svg>공유</button>
             <a class="btn sm gold" href="https://dhlottery.co.kr/" target="_blank" rel="noopener"><svg class="i sm"><use href="#i-cart"/></svg>동행복권에서 구매</a>
           </div>
         </div>
@@ -554,7 +565,26 @@
 <div id="flash"></div>
 <canvas id="fx"></canvas>
 <div id="toast" role="status"></div>
+<!-- 번호 공유 -->
+<div class="scrim" id="shareSheet" hidden>
+  <div class="sheet share" role="dialog" aria-label="번호 공유">
+    <h3>번호 공유</h3>
+    <img id="shareImg" alt="공유할 번호 카드">
+    <button class="btn primary xl" id="shareApp"><svg class="i"><use href="#i-share"/></svg>카카오톡·다른 앱으로 보내기</button>
+    <label class="hint" for="sharePhone">문자로 보내기</label>
+    <div class="phone-row">
+      <input id="sharePhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="010-1234-5678" aria-label="받는 사람 휴대폰 번호">
+      <button class="btn" id="shareSms"><svg class="i sm"><use href="#i-phone"/></svg>문자 보내기</button>
+    </div>
+    <div class="row">
+      <button class="btn sm" id="shareSave"><svg class="i sm"><use href="#i-download"/></svg>이미지 저장</button>
+      <button class="btn sm" id="shareCopy"><svg class="i sm"><use href="#i-copy"/></svg>글로 복사</button>
+      <button class="btn sm ghost" id="shareClose" style="margin-left:auto">닫기</button>
+    </div>
+  </div>
+</div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (() => {
   'use strict';
@@ -974,7 +1004,7 @@
     // 꿈 모드 중이면 뒤로 가기 = 꿈 모드 끄기
     if (Sleep.on) { if (!$('ask').hidden) $('askNo').click(); Sleep.stop(true); return; }
     // 열려 있는 창이 있으면 먼저 닫는다
-    if (!$('settings').hidden) { $('settings').hidden = true; history.pushState(null, '', '#' + current); return; }
+    if (!$('settings').hidden || !$('shareSheet').hidden) { $('settings').hidden = true; $('shareSheet').hidden = true; history.pushState(null, '', '#' + current); return; }
     show(location.hash.slice(1) || 'dream', true, true); scrollTo({ top: 0 });
   });
   // 위쪽 뒤로 버튼: 다른 탭이면 꿈 탭으로, 꿈 탭이면 홈 화면으로 (대화창 안에서는 홈이 없으니 숨김)
@@ -1401,7 +1431,7 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
   /* =====================================================
    *  추첨기 (회전하는 통)
    * ===================================================== */
-  const Machine = {
+  const Machine2D = {
     cv: $('machine'), ctx: null, W: 0, R: 0, br: 0, cx: 0, cy: 0, balls: [], mixing: false, pause: false, until: 0, raf: 0, exiting: null, rot: 0,
     resize() {
       const dpr = devicePixelRatio || 1, W = this.cv.clientWidth || 300;
@@ -1516,6 +1546,171 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
       });
     },
   };
+
+  /* =====================================================
+   *  3D 추첨기 (Three.js) — 투명 아크릴 통, 갈비 링, 금속 받침, 광택 번호 공
+   *  Three.js를 못 불러오거나 WebGL이 안 되면 2D 추첨기로 돌아간다
+   * ===================================================== */
+  const Machine3D = {
+    cv: $('machine'), mixing: false, pause: false, until: 0, raf: 0, balls: [], exiting: null, R: 1, r: 0.125, W: 0,
+    init() {
+      const T = window.THREE;
+      this.renderer = new T.WebGLRenderer({ canvas: this.cv, antialias: true, alpha: true });
+      this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+      this.renderer.outputEncoding = T.sRGBEncoding;
+      this.renderer.toneMapping = T.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.05;
+      const scene = this.scene = new T.Scene();
+      this.camera = new T.PerspectiveCamera(31, 1, 0.1, 50);
+      this.camera.position.set(0.15, 0.4, 5.9); this.camera.lookAt(0, 0.02, 0);
+      // 스튜디오 조명을 그린 배경 지도로 반사를 만든다 (공·유리에 창문 같은 하이라이트)
+      const ec = document.createElement('canvas'); ec.width = 512; ec.height = 256;
+      const g = ec.getContext('2d'), grd = g.createLinearGradient(0, 0, 0, 256);
+      grd.addColorStop(0, '#dfe7ff'); grd.addColorStop(.45, '#6b7894'); grd.addColorStop(.55, '#2a3142'); grd.addColorStop(1, '#0b0d14');
+      g.fillStyle = grd; g.fillRect(0, 0, 512, 256);
+      g.fillStyle = '#ffffff'; g.fillRect(60, 40, 90, 50); g.fillRect(300, 30, 140, 40); g.fillStyle = '#9fc4ff'; g.fillRect(200, 90, 60, 20);
+      const etex = new T.CanvasTexture(ec); etex.mapping = T.EquirectangularReflectionMapping; etex.encoding = T.sRGBEncoding;
+      const pm = new T.PMREMGenerator(this.renderer); scene.environment = pm.fromEquirectangular(etex).texture; pm.dispose();
+      scene.add(new T.HemisphereLight(0xdfe6ff, 0x141822, 0.55));
+      const key = new T.DirectionalLight(0xffffff, 1.3); key.position.set(2.5, 3.5, 3); scene.add(key);
+      const rim = new T.DirectionalLight(0x8fb4ff, 0.7); rim.position.set(-3, 1.5, -2); scene.add(rim);
+      const R = this.R;
+      const glass = new T.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.16, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 2.2, side: T.DoubleSide, depthWrite: false });
+      const shell = new T.Mesh(new T.SphereGeometry(R, 72, 48), glass); shell.renderOrder = 2; scene.add(shell);
+      // 사진 속 기계처럼 옆면에 겹친 아크릴 링
+      const ringMat = new T.MeshPhysicalMaterial({ color: 0xeef3ff, roughness: 0.08, transparent: true, opacity: 0.45, clearcoat: 1, envMapIntensity: 2.5, depthWrite: false });
+      [0.2, 0.42, 0.62, 0.78, 0.9].forEach((x) => {
+        const ring = new T.Mesh(new T.TorusGeometry(Math.sqrt(R * R - x * x) + 0.01, 0.012, 10, 96), ringMat);
+        ring.rotation.y = Math.PI / 2; ring.position.x = x; ring.renderOrder = 3; scene.add(ring);
+      });
+      const equator = new T.Mesh(new T.TorusGeometry(R + 0.012, 0.018, 12, 120), ringMat); equator.rotation.x = Math.PI / 2; equator.renderOrder = 3; scene.add(equator);
+      // 위쪽 배출관
+      const tube = new T.Mesh(new T.CylinderGeometry(this.r * 1.45, this.r * 1.45, 0.62, 40, 1, true), glass); tube.position.y = R + 0.22; tube.renderOrder = 2; scene.add(tube);
+      const lip = new T.Mesh(new T.TorusGeometry(this.r * 1.45, 0.014, 8, 48), ringMat); lip.rotation.x = Math.PI / 2; lip.position.y = R + 0.53; scene.add(lip);
+      // 금속 받침
+      const metal = new T.MeshStandardMaterial({ color: 0x3a4152, metalness: 0.85, roughness: 0.32, envMapIntensity: 1.2 });
+      const neck = new T.Mesh(new T.CylinderGeometry(0.16, 0.24, 0.3, 40), metal); neck.position.y = -R - 0.1; scene.add(neck);
+      const base = new T.Mesh(new T.CylinderGeometry(0.62, 0.72, 0.16, 64), metal); base.position.y = -R - 0.3; scene.add(base);
+      const sc = document.createElement('canvas'); sc.width = sc.height = 128;
+      const sg = sc.getContext('2d'), sgr = sg.createRadialGradient(64, 64, 4, 64, 64, 64); sgr.addColorStop(0, 'rgba(0,0,0,.55)'); sgr.addColorStop(1, 'rgba(0,0,0,0)');
+      sg.fillStyle = sgr; sg.fillRect(0, 0, 128, 128);
+      const shadow = new T.Mesh(new T.PlaneGeometry(2.2, 2.2), new T.MeshBasicMaterial({ map: new T.CanvasTexture(sc), transparent: true, depthWrite: false }));
+      shadow.rotation.x = -Math.PI / 2; shadow.position.y = -R - 0.385; scene.add(shadow);
+      // 번호 공: 색 바탕에 앞뒤로 흰 원과 번호
+      const geo = new T.SphereGeometry(this.r, 40, 28);
+      for (let n = 1; n <= 45; n++) {
+        const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+        const x = c.getContext('2d'); x.fillStyle = ballColor(n); x.fillRect(0, 0, 512, 256);
+        for (const cx of [128, 384]) {
+          x.fillStyle = '#ffffff'; x.beginPath(); x.ellipse(cx, 128, 44, 50, 0, 0, 7); x.fill();
+          x.fillStyle = '#15171f'; x.font = `700 ${n > 9 ? 52 : 60}px "IBM Plex Sans KR", system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+          x.fillText(n, cx, 131);
+          if (n === 6 || n === 9) { x.fillRect(cx - 14, 160, 28, 5); } // 6과 9 구분 밑줄
+        }
+        const tex = new T.CanvasTexture(c); tex.encoding = T.sRGBEncoding; tex.anisotropy = 4;
+        const mesh = new T.Mesh(geo, new T.MeshPhysicalMaterial({ map: tex, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 0.8 }));
+        mesh.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+        scene.add(mesh);
+        this.balls.push({ n, mesh, p: new T.Vector3(), v: new T.Vector3(), out: false });
+      }
+      this.tmp = new T.Vector3(); this.axis = new T.Vector3(); this.up = new T.Vector3(0, 1, 0);
+      document.body.classList.add('m3d');
+    },
+    resize() {
+      const W = this.cv.clientWidth || 300;
+      if (W !== this.W) { this.W = W; this.renderer.setSize(W, W, false); this.camera.aspect = 1; this.camera.updateProjectionMatrix(); }
+      this.draw();
+    },
+    reset() {
+      const { R, r } = this;
+      for (const b of this.balls) {
+        b.out = false; b.mesh.visible = true;
+        for (let k = 0; k < 20; k++) { // 아래쪽에 겹치지 않게 놓기
+          b.p.set((Math.random() - .5) * 1.5 * R, -R * (0.15 + Math.random() * 0.7), (Math.random() - .5) * 1.5 * R);
+          if (b.p.length() < R - r) break;
+        }
+        b.v.set(0, 0, 0); b.mesh.position.copy(b.p);
+      }
+      this.kick(1800);
+    },
+    kick(ms) { this.until = Math.max(this.until, performance.now() + ms); if (!this.raf) this.loop(); },
+    loop() {
+      let last = performance.now();
+      const step = (now) => {
+        const dt = Math.min(.033, (now - last) / 1000); last = now;
+        if (!this.pause) {
+          if (this.mixing) { // 바닥에서 공기 분사
+            const low = this.balls.filter((b) => !b.out && b.p.y < -this.R * 0.25);
+            for (let i = 0; i < 3 && low.length; i++) if (Math.random() < .5) {
+              const b = low[Math.floor(Math.random() * low.length)];
+              b.v.y = 3.2 + Math.random() * 3.2; b.v.x += (Math.random() - .5) * 3; b.v.z += (Math.random() - .5) * 3;
+            }
+          }
+          for (let k = 0; k < 3; k++) this.physics(dt / 3);
+          this.draw();
+        }
+        if (this.mixing || this.exiting || now < this.until) this.raf = requestAnimationFrame(step); else this.raf = 0;
+      };
+      this.raf = requestAnimationFrame(step);
+    },
+    physics(dt) {
+      const { R, r } = this, live = this.balls.filter((b) => !b.out), max = 7;
+      for (const b of live) {
+        b.v.y -= 6.5 * dt;
+        if (this.mixing) { // 앞에서 볼 때 원을 그리며 도는 바람 + 난류
+          const d = Math.hypot(b.p.x, b.p.y) || 1, tx = -b.p.y / d, ty = b.p.x / d, vt = b.v.x * tx + b.v.y * ty, target = 4 * d;
+          b.v.x += (target - vt) * tx * 3.2 * dt; b.v.y += (target - vt) * ty * 3.2 * dt;
+          b.v.x += (Math.random() - .5) * 55 * dt; b.v.y += (Math.random() - .5) * 55 * dt; b.v.z += (Math.random() - .5) * 55 * dt;
+        }
+        const sp = b.v.length(); if (sp > max) b.v.multiplyScalar(max / sp);
+        b.p.addScaledVector(b.v, dt);
+        const d = b.p.length();
+        if (d > R - r) {
+          const n = this.tmp.copy(b.p).divideScalar(d);
+          b.p.copy(n).multiplyScalar(R - r);
+          const vn = b.v.dot(n); if (vn > 0) b.v.addScaledVector(n, -1.7 * vn);
+          b.v.multiplyScalar(.992);
+        }
+      }
+      for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
+        const a = live[i], b = live[j], dx = b.p.x - a.p.x, dy = b.p.y - a.p.y, dz = b.p.z - a.p.z, d2 = dx * dx + dy * dy + dz * dz, min = 2 * r;
+        if (d2 < min * min && d2 > 1e-6) {
+          const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, nz = dz / d, ov = (min - d) / 2;
+          a.p.x -= nx * ov; a.p.y -= ny * ov; a.p.z -= nz * ov; b.p.x += nx * ov; b.p.y += ny * ov; b.p.z += nz * ov;
+          const rv = (b.v.x - a.v.x) * nx + (b.v.y - a.v.y) * ny + (b.v.z - a.v.z) * nz;
+          if (rv < 0) { const j2 = -0.9 * rv; a.v.x -= j2 * nx; a.v.y -= j2 * ny; a.v.z -= j2 * nz; b.v.x += j2 * nx; b.v.y += j2 * ny; b.v.z += j2 * nz; }
+        }
+      }
+      for (const b of live) { // 구르는 방향으로 회전
+        b.mesh.position.copy(b.p);
+        const sp = b.v.length();
+        if (sp > 0.02) { this.axis.crossVectors(this.up, b.v).normalize(); b.mesh.rotateOnWorldAxis(this.axis, sp * dt / r); }
+      }
+    },
+    draw() { if (this.renderer) this.renderer.render(this.scene, this.camera); },
+    pickBall(n, fast) {
+      return new Promise((res) => {
+        const T = window.THREE, b = this.balls.find((x) => x.n === n); b.out = true;
+        const from = b.p.clone(), mid = new T.Vector3(0, this.R - this.r * 1.2, 0), end = new T.Vector3(0, this.R + 0.95, 0);
+        const T1 = fast ? 240 : 520, T2 = fast ? 180 : 360, t0 = performance.now();
+        this.exiting = b; const ease = (t) => 1 - Math.pow(1 - t, 3);
+        const tick = (now) => {
+          const t = now - t0;
+          if (t < T1) b.mesh.position.lerpVectors(from, mid, ease(t / T1));
+          else if (t < T1 + T2) { const k = (t - T1) / T2; b.mesh.position.lerpVectors(mid, end, k * k); }
+          else { b.mesh.visible = false; this.exiting = null; this.draw(); return res(); }
+          b.mesh.rotateY(0.25);
+          if (!this.raf) this.draw();
+          requestAnimationFrame(tick);
+        };
+        if (!this.raf) this.loop();
+        requestAnimationFrame(tick);
+      });
+    },
+  };
+  let Machine = Machine2D;
+  if (window.THREE) {
+    try { Machine3D.init(); Machine = Machine3D; } catch (e) { document.body.classList.remove('m3d'); }
+  }
   Machine.resize(); Machine.reset();
   addEventListener('resize', () => { FX.resize(); Machine.resize(); });
 
@@ -1586,6 +1781,90 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
       let ok = false; try { ok = document.execCommand('copy'); } catch (e2) { ok = false; } t.remove(); return ok;
     }
   }
+  /* ---------- 번호 공유: 카드 이미지 + 글, 카톡·문자·저장 ---------- */
+  const currentRound = () => Math.round((nextDeadline() - FIRST_DEADLINE) / WEEK) + 1;
+  const shareText = (games) => {
+    const dream = [...new Set(games.flatMap((g) => g.dream || []))].sort((a, b) => a - b);
+    return `꿈속 로또 · 제 ${currentRound()}회\n` + games.map((g, i) => `${String.fromCharCode(65 + i)}  ${g.nums.map(pad).join(' ')}`).join('\n')
+      + (dream.length ? `\n꿈에서 온 번호 ${dream.map(pad).join(', ')}` : '');
+  };
+  async function shareCard(games) {
+    try { await document.fonts.ready; } catch (e) { /* 무시 */ }
+    const W = 1080, rowH = 140, H = 330 + games.length * rowH + 150;
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    x.fillStyle = '#0b0d14'; x.fillRect(0, 0, W, H);
+    x.fillStyle = '#11141c'; x.fillRect(48, 48, W - 96, H - 96);
+    x.strokeStyle = 'rgba(238,240,245,.08)'; x.lineWidth = 2; x.strokeRect(48, 48, W - 96, H - 96);
+    // 초승달
+    x.save(); x.translate(130, 150); x.fillStyle = '#f2c55c'; x.beginPath(); x.arc(0, 0, 34, 0, 7); x.fill();
+    x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(16, -12, 30, 0, 7); x.fill(); x.restore();
+    x.fillStyle = '#eef0f5'; x.font = '64px Jua, "IBM Plex Sans KR", sans-serif'; x.textBaseline = 'middle'; x.fillText('꿈속 로또', 190, 150);
+    const d = new Date();
+    x.fillStyle = '#a3a9b8'; x.font = '500 36px "IBM Plex Sans KR", sans-serif';
+    x.fillText(`제 ${currentRound()}회 · ${d.getMonth() + 1}월 ${d.getDate()}일 추첨 번호`, 104, 236);
+    x.fillStyle = 'rgba(238,240,245,.08)'; x.fillRect(104, 286, W - 208, 2);
+    games.forEach((g, i) => {
+      const y = 330 + i * rowH + rowH / 2, dream = new Set(g.dream || []);
+      x.fillStyle = '#7a8296'; x.font = '600 44px "IBM Plex Sans KR", sans-serif'; x.textAlign = 'center'; x.fillText(String.fromCharCode(65 + i), 140, y);
+      g.nums.forEach((n, k) => {
+        const cx = 262 + k * 128, r = 50;
+        if (dream.has(n)) { x.strokeStyle = '#f2c55c'; x.lineWidth = 6; x.beginPath(); x.arc(cx, y, r + 9, 0, 7); x.stroke(); }
+        x.fillStyle = ballColor(n); x.beginPath(); x.arc(cx, y, r, 0, 7); x.fill();
+        const hl = x.createRadialGradient(cx - 18, y - 20, 2, cx - 10, y - 10, r);
+        hl.addColorStop(0, 'rgba(255,255,255,.75)'); hl.addColorStop(.35, 'rgba(255,255,255,0)'); hl.addColorStop(1, 'rgba(0,0,0,.22)');
+        x.fillStyle = hl; x.beginPath(); x.arc(cx, y, r, 0, 7); x.fill();
+        x.fillStyle = '#fff'; x.font = '700 44px "IBM Plex Sans KR", sans-serif'; x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 4;
+        x.fillText(n, cx, y + 2); x.shadowBlur = 0;
+      });
+    });
+    const fy = H - 120;
+    x.textAlign = 'left'; x.fillStyle = '#f2c55c'; x.beginPath(); x.arc(112, fy, 9, 0, 7); x.fill();
+    x.fillStyle = '#a3a9b8'; x.font = '500 30px "IBM Plex Sans KR", sans-serif'; x.fillText('금색 고리는 꿈에서 온 번호', 136, fy + 1);
+    x.textAlign = 'right'; x.fillStyle = '#7a8296'; x.fillText('토요일 20:00 판매 마감', W - 104, fy + 1);
+    return new Promise((res) => c.toBlob((b) => res({ blob: b, url: c.toDataURL('image/png') }), 'image/png'));
+  }
+  let shareData = null;
+  async function openShare(games) {
+    Sound.init(); Sound.click();
+    const text = shareText(games), card = await shareCard(games);
+    shareData = { text, ...card };
+    $('shareImg').src = card.url; $('shareSheet').hidden = false;
+  }
+  const closeShare = () => { $('shareSheet').hidden = true; };
+  $('shareClose').onclick = () => { Sound.click(); closeShare(); };
+  $('shareSheet').addEventListener('click', (e) => { if (e.target.id === 'shareSheet') closeShare(); });
+  $('shareApp').onclick = async () => {
+    if (!shareData) return;
+    const file = new File([shareData.blob], 'dream-lotto.png', { type: 'image/png' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: shareData.text, title: '꿈속 로또' }); return; }
+      if (navigator.share) { await navigator.share({ text: shareData.text, title: '꿈속 로또' }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    toast(await copyText(shareData.text) ? '번호를 복사했어요. 카카오톡 대화방에 붙여넣으세요' : '이 화면에서는 공유할 수 없어요', 4000);
+  };
+  $('sharePhone').addEventListener('input', (e) => {
+    const d = e.target.value.replace(/\D/g, '').slice(0, 11);
+    e.target.value = d.length > 7 ? `${d.slice(0, 3)}-${d.slice(3, d.length - 4)}-${d.slice(-4)}` : d.length > 3 ? `${d.slice(0, 3)}-${d.slice(3)}` : d;
+  });
+  $('shareSms').onclick = async () => {
+    const num = $('sharePhone').value.replace(/\D/g, '');
+    if (!/^01\d{8,9}$/.test(num)) { Sound.boop(false); toast('휴대폰 번호를 확인해 주세요 (예: 010-1234-5678)'); $('sharePhone').focus(); return; }
+    // 번호는 어디에도 저장하거나 보내지 않고, 휴대폰 문자 앱만 열어 준다
+    const a = document.createElement('a'); a.href = `sms:${num}?&body=${encodeURIComponent(shareData.text)}`; document.body.appendChild(a); a.click(); a.remove();
+    if (inViewer()) toast(await copyText(shareData.text) ? '문자 앱이 안 열리면 복사한 번호를 붙여넣어 보내세요' : '이 화면에서는 문자 앱을 열 수 없어요', 4500);
+  };
+  $('shareSave').onclick = async () => {
+    if (!shareData) return;
+    if (inViewer()) {
+      const dl = await window.claude.use('downloads').catch(() => null);
+      if (dl) { try { await dl.save({ filename: 'dream-lotto.png', data: shareData.blob }); } catch (e) { if (e && e.code !== 'declined') toast('이미지를 저장하지 못했어요'); } return; }
+      toast('이 화면에서는 이미지를 저장할 수 없어요'); return;
+    }
+    const a = document.createElement('a'); a.href = shareData.url; a.download = 'dream-lotto.png'; document.body.appendChild(a); a.click(); a.remove();
+  };
+  $('shareCopy').onclick = async () => { Sound.click(); toast(await copyText(shareData.text) ? '복사했어요' : '복사하지 못했어요'); };
+  $('shareBtn').onclick = () => openShare(lastResults.map((r) => ({ nums: r.nums, dream: [...r.sure, ...r.maybe] })));
+
   $('copyBtn').onclick = async () => {
     Sound.click();
     const text = lastResults.map((r) => `${r.label}: ${r.nums.map(pad).join(' ')}`).join('\n');
@@ -1697,12 +1976,13 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
       ${r.text ? `<p class="said">“${esc(r.text)}”</p>` : ''}
       ${r.picks.length ? `<div class="balls">${sure.map((n) => ballHTML(n, 'sm dream')).join('')}${maybe.map((n) => ballHTML(n, 'sm spread')).join('')}</div>` : '<p class="said">꿈 번호 없이 자동 추첨</p>'}
       <div class="list games" style="margin-top:0"></div>
-      <button class="btn sm" data-act="again" style="justify-self:start">${icon('balls')}이 번호로 다시 추첨</button>`;
+      <div class="row"><button class="btn sm" data-act="again">${icon('balls')}이 번호로 다시 추첨</button><button class="btn sm" data-act="share">${icon('share')}공유</button></div>`;
     const gl = d.querySelector('.games');
     r.games.forEach((g, i) => addRow(gl, String.fromCharCode(65 + i), g.nums, new Set(g.dream)));
     d.querySelector('[data-act=del]').onclick = async () => {
       if (await ask('이 추첨 기록을 지울까요?')) { runs = runs.filter((x) => x.id !== r.id); store.set('dl-runs', runs); renderMemos(); }
     };
+    d.querySelector('[data-act=share]').onclick = () => openShare(r.games);
     d.querySelector('[data-act=again]').onclick = () => {
       Sound.init(); pick.clear(); r.picks.forEach(([n, v]) => pick.set(n, v));
       $('dreamText').value = r.text; store.set('dl-dream', r.text); paintGrid();
