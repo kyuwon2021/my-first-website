@@ -1574,18 +1574,20 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
       const key = new T.DirectionalLight(0xffffff, 1.3); key.position.set(2.5, 3.5, 3); scene.add(key);
       const rim = new T.DirectionalLight(0x8fb4ff, 0.7); rim.position.set(-3, 1.5, -2); scene.add(rim);
       const R = this.R;
-      const glass = new T.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.16, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 2.2, side: T.DoubleSide, depthWrite: false });
-      const shell = new T.Mesh(new T.SphereGeometry(R, 72, 48), glass); shell.renderOrder = 2; scene.add(shell);
-      // 사진 속 기계처럼 옆면에 겹친 아크릴 링
-      const ringMat = new T.MeshPhysicalMaterial({ color: 0xeef3ff, roughness: 0.08, transparent: true, opacity: 0.45, clearcoat: 1, envMapIntensity: 2.5, depthWrite: false });
-      [0.2, 0.42, 0.62, 0.78, 0.9].forEach((x) => {
-        const ring = new T.Mesh(new T.TorusGeometry(Math.sqrt(R * R - x * x) + 0.01, 0.012, 10, 96), ringMat);
-        ring.rotation.y = Math.PI / 2; ring.position.x = x; ring.renderOrder = 3; scene.add(ring);
+      // 투명 유리: 가장자리만 밝게 빛나는 프레넬 테두리 + 아주 옅은 반사. 안쪽에는 아무것도 두지 않는다
+      const rimMat = (strength) => new T.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.FrontSide,
+        uniforms: { strength: { value: strength } },
+        vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'uniform float strength; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(1.0 - abs(dot(vN, vV)), 3.0); gl_FragColor = vec4(vec3(0.85,0.9,1.0) * f * strength, f * strength); }',
       });
-      const equator = new T.Mesh(new T.TorusGeometry(R + 0.012, 0.018, 12, 120), ringMat); equator.rotation.x = Math.PI / 2; equator.renderOrder = 3; scene.add(equator);
-      // 위쪽 배출관
-      const tube = new T.Mesh(new T.CylinderGeometry(this.r * 1.45, this.r * 1.45, 0.62, 40, 1, true), glass); tube.position.y = R + 0.22; tube.renderOrder = 2; scene.add(tube);
-      const lip = new T.Mesh(new T.TorusGeometry(this.r * 1.45, 0.014, 8, 48), ringMat); lip.rotation.x = Math.PI / 2; lip.position.y = R + 0.53; scene.add(lip);
+      const shine = new T.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.02, metalness: 0, transparent: true, opacity: 0.05, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 3, depthWrite: false });
+      const shellGeo = new T.SphereGeometry(R, 96, 64);
+      const shell = new T.Mesh(shellGeo, shine); shell.renderOrder = 2; scene.add(shell);
+      const rimFront = new T.Mesh(shellGeo, rimMat(0.9)); rimFront.renderOrder = 3; scene.add(rimFront);
+      // 위쪽 배출구: 짧은 투명 관
+      const neckGeo = new T.CylinderGeometry(this.r * 1.5, this.r * 1.5, 0.42, 48, 1, true);
+      const tube = new T.Mesh(neckGeo, rimMat(1.1)); tube.position.y = R + 0.16; tube.renderOrder = 3; scene.add(tube);
       // 금속 받침
       const metal = new T.MeshStandardMaterial({ color: 0x3a4152, metalness: 0.85, roughness: 0.32, envMapIntensity: 1.2 });
       const neck = new T.Mesh(new T.CylinderGeometry(0.16, 0.24, 0.3, 40), metal); neck.position.y = -R - 0.1; scene.add(neck);
@@ -1596,17 +1598,17 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
       const shadow = new T.Mesh(new T.PlaneGeometry(2.2, 2.2), new T.MeshBasicMaterial({ map: new T.CanvasTexture(sc), transparent: true, depthWrite: false }));
       shadow.rotation.x = -Math.PI / 2; shadow.position.y = -R - 0.385; scene.add(shadow);
       // 번호 공: 색 바탕에 앞뒤로 흰 원과 번호
-      const geo = new T.SphereGeometry(this.r, 40, 28);
+      const geo = new T.SphereGeometry(this.r, 64, 48);
       for (let n = 1; n <= 45; n++) {
-        const c = document.createElement('canvas'); c.width = 512; c.height = 256;
-        const x = c.getContext('2d'); x.fillStyle = ballColor(n); x.fillRect(0, 0, 512, 256);
+        const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+        const x = c.getContext('2d'); x.fillStyle = ballColor(n); x.fillRect(0, 0, 1024, 512); x.scale(2, 2);
         for (const cx of [128, 384]) {
           x.fillStyle = '#ffffff'; x.beginPath(); x.ellipse(cx, 128, 44, 50, 0, 0, 7); x.fill();
           x.fillStyle = '#15171f'; x.font = `700 ${n > 9 ? 52 : 60}px "IBM Plex Sans KR", system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
           x.fillText(n, cx, 131);
           if (n === 6 || n === 9) { x.fillRect(cx - 14, 160, 28, 5); } // 6과 9 구분 밑줄
         }
-        const tex = new T.CanvasTexture(c); tex.encoding = T.sRGBEncoding; tex.anisotropy = 4;
+        const tex = new T.CanvasTexture(c); tex.encoding = T.sRGBEncoding; tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
         const mesh = new T.Mesh(geo, new T.MeshPhysicalMaterial({ map: tex, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 0.8 }));
         mesh.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
         scene.add(mesh);
@@ -1683,7 +1685,8 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
       for (const b of live) { // 구르는 방향으로 회전
         b.mesh.position.copy(b.p);
         const sp = b.v.length();
-        if (sp > 0.02) { this.axis.crossVectors(this.up, b.v).normalize(); b.mesh.rotateOnWorldAxis(this.axis, sp * dt / r); }
+        if (sp > 0.02) { this.axis.crossVectors(this.up, b.v); if (this.axis.lengthSq() > 1e-8) { this.axis.normalize(); b.mesh.rotateOnWorldAxis(this.axis, sp * dt / r); } }
+        b.mesh.quaternion.normalize(); // 회전이 쌓여도 공이 납작해지지 않게
       }
     },
     draw() { if (this.renderer) this.renderer.render(this.scene, this.camera); },
@@ -1698,7 +1701,7 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
           if (t < T1) b.mesh.position.lerpVectors(from, mid, ease(t / T1));
           else if (t < T1 + T2) { const k = (t - T1) / T2; b.mesh.position.lerpVectors(mid, end, k * k); }
           else { b.mesh.visible = false; this.exiting = null; this.draw(); return res(); }
-          b.mesh.rotateY(0.25);
+          b.mesh.rotateY(0.25); b.mesh.quaternion.normalize();
           if (!this.raf) this.draw();
           requestAnimationFrame(tick);
         };
@@ -2029,7 +2032,7 @@ JSON 한 줄로만 답하라: {"numbers":[숫자, 숫자]}
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('settings').hidden = true; } });
 
   // 테스트용
-  window.__dreamLotto = { extractNumbers, analyzeDream, hasRun, spreadOK, makeGames: (g) => makeGames(g), pick, DB, Sleep, Rec, show };
+  window.__dreamLotto = { get machine() { return Machine; }, extractNumbers, analyzeDream, hasRun, spreadOK, makeGames: (g) => makeGames(g), pick, DB, Sleep, Rec, show };
 })();
 </script>
 </body>
