@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f2ea">
+<title>라스베가스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* 레이아웃: 골프장 스코어카드. 종이색 바탕에 짙은 초록 잉크, 숫자는 연필 같은 고정폭 글꼴.
+     색은 뽑기 막대(빨강·파랑 편)와 스코어 표기(버디 동그라미, 보기 네모)에만 쓴다 */
+  :root {
+    color-scheme: light;
+    --paper: #f4f2ea;
+    --card: #fffdf6;
+    --raised: #ebe7da;
+    --line: rgba(27, 36, 30, .11);
+    --ink: #1b241e;
+    --ink-2: #4b5649;
+    --muted: #6b7466;
+    --green: #1f5a3d;
+    --green-ink: #f4f2ea;
+    --red: #b8372c;
+    --blue: #2a5ca8;
+    --pos: #1f7a4a;
+    --neg: #b8372c;
+    --display: "Gowun Batang", "Noto Serif KR", serif;
+    --body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    --ease: cubic-bezier(.22, 1, .36, 1);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  body { min-height: 100vh; background: var(--paper); color: var(--ink); font: 400 15px/1.55 var(--body); word-break: keep-all; overflow-wrap: anywhere; overflow-x: hidden; }
+  h1, h2, h3 { margin: 0; text-wrap: balance; }
+  p { margin: 0; text-wrap: pretty; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+  #app { max-width: 720px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 4px 48px; }
+  .top { display: flex; align-items: center; gap: 4px; height: 60px; }
+  .top h1 { flex: 1; font: 700 24px/1 var(--display); letter-spacing: .5px; }
+  .icon-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: none; color: var(--ink-2); text-decoration: none; transition: background-color .15s var(--ease); }
+  .icon-btn:hover { background: var(--raised); }
+  .icon-btn .i { width: 20px; height: 20px; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-weight: 500; transition: background-color .15s var(--ease), transform .12s var(--ease); }
+  .btn:hover { background: var(--raised); }
+  .btn:active { transform: scale(.97); }
+  .btn.primary { background: var(--green); border-color: transparent; color: var(--green-ink); }
+  .btn.primary:hover { background: #184a32; }
+  .btn.wide { width: 100%; min-height: 52px; font-size: 17px; border-radius: 12px; }
+  .btn:disabled { opacity: .4; pointer-events: none; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+  .label { font-size: 13px; color: var(--muted); }
+
+  /* ---------- 설정 ---------- */
+  .setup { display: grid; gap: 16px; }
+  .setup h2 { font: 700 18px/1.3 var(--display); margin-bottom: 12px; }
+  .names { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .field { display: grid; gap: 4px; }
+  .field input { width: 100%; height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; background: var(--paper); outline: none; transition: border-color .15s var(--ease); }
+  .field input:focus { border-color: var(--green); background: var(--card); }
+  .money { position: relative; }
+  .money input { padding-right: 32px; text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .money::after { content: "원"; position: absolute; right: 12px; bottom: 11px; color: var(--muted); font-size: 14px; }
+  .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .pot-note { margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--paper); font-size: 14px; color: var(--ink-2); }
+  .pot-note b { color: var(--ink); font-weight: 600; }
+  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; border-top: 1px solid var(--line); cursor: pointer; }
+  .toggle:first-of-type { border-top: 0; }
+  .toggle small { display: block; color: var(--muted); font-size: 13px; }
+  .toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .sw { position: relative; width: 44px; height: 26px; border-radius: 13px; background: var(--raised); border: 1px solid var(--line); flex: none; transition: background-color .15s var(--ease); }
+  .sw::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--card); box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s var(--ease); }
+  .toggle input:checked + .sw { background: var(--green); }
+  .toggle input:checked + .sw::after { transform: translateX(18px); }
+  .toggle input:focus-visible + .sw { outline: 2px solid var(--green); outline-offset: 2px; }
+  .pars { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; }
+  .pars + .label { margin-top: 12px; }
+  .par { display: grid; justify-items: center; gap: 2px; padding: 6px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); min-height: 52px; }
+  .par span { font-size: 11px; color: var(--muted); }
+  .par b { font: 600 16px/1 var(--mono); }
+  .par:hover { background: var(--raised); }
+
+  /* ---------- 라운드 ---------- */
+  .status { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0 12px; }
+  .status .pot { font: 600 22px/1 var(--mono); }
+  .status .pot small { font: 400 13px var(--body); color: var(--muted); margin-left: 6px; letter-spacing: 0; }
+  .holes-bar { display: flex; gap: 3px; margin-bottom: 16px; }
+  .holes-bar i { flex: 1; height: 4px; border-radius: 2px; background: var(--raised); }
+  .holes-bar i.done { background: var(--green); }
+  .holes-bar i.now { background: var(--ink); }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; gap: 4px; border-radius: 12px; background: var(--raised); margin-bottom: 16px; }
+  .seg button { min-height: 40px; border: 0; border-radius: 8px; background: none; color: var(--ink-2); font-weight: 500; }
+  .seg button[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+  .hole-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .hole-head h2 { font: 700 40px/1 var(--display); }
+  .hole-head h2 small { font: 400 16px var(--body); color: var(--muted); margin-left: 8px; }
+  .hole-head .stake { text-align: right; font-size: 13px; color: var(--muted); }
+  .hole-head .stake b { display: block; font: 600 18px/1.3 var(--body); font-variant-numeric: tabular-nums; color: var(--ink); }
+  .carry { display: inline-block; margin-top: 4px; padding: 1px 8px; border-radius: 6px; background: var(--ink); color: var(--paper); font-size: 12px; }
+
+  /* 뽑기 통 (이 화면의 주인공) */
+  .draw { display: grid; justify-items: center; gap: 16px; padding: 24px 16px 20px; overflow: hidden; }
+  .cupbox { position: relative; width: 220px; height: 330px; }
+  .stick { position: absolute; bottom: 52px; left: 50%; width: 14px; height: 176px; margin-left: -7px; border-radius: 7px 7px 3px 3px;
+    background: linear-gradient(90deg, #d9c49c, #efe2c6 45%, #d4bd91); box-shadow: inset 0 0 0 1px rgba(90,64,24,.18);
+    transform-origin: 50% 100%; transition: transform .7s var(--ease); z-index: 1; }
+  .stick .tip { position: absolute; left: 0; right: 0; bottom: 0; height: 46px; border-radius: 0 0 3px 3px; display: grid; place-items: end center; padding-bottom: 6px; color: #fff; font: 600 11px/1 var(--mono); }
+  .stick .tip.c0 { background: linear-gradient(90deg, #a52f25, #c94539 50%, #a52f25); }
+  .stick .tip.c1 { background: linear-gradient(90deg, #234f92, #3367b6 50%, #234f92); }
+  .stick .who { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); white-space: nowrap; padding: 2px 8px; border-radius: 6px; background: var(--ink); color: var(--paper); font-size: 12px; opacity: 0; transition: opacity .3s var(--ease) .4s; }
+  .stick.up .who { opacity: 1; }
+  .cup { position: absolute; left: 50%; bottom: 0; width: 132px; height: 116px; margin-left: -66px; z-index: 2;
+    background: linear-gradient(90deg, #17392a, #2b5a43 38%, #3a6b52 50%, #24503b 70%, #17392a); border-radius: 10px 10px 26px 26px / 10px 10px 30px 30px;
+    box-shadow: 0 10px 18px -8px rgba(27,36,30,.45); }
+  .cup::before { content: ""; position: absolute; left: -4px; right: -4px; top: -10px; height: 22px; border-radius: 50%; background: linear-gradient(180deg, #2f5f47, #183c2c); box-shadow: inset 0 3px 6px rgba(0,0,0,.45); }
+  .cup::after { content: ""; position: absolute; left: 16px; right: 16px; bottom: 26px; height: 1px; background: rgba(244,242,234,.22); }
+  .cup span { position: absolute; left: 0; right: 0; top: 44px; text-align: center; color: rgba(244,242,234,.75); font: 700 15px var(--display); letter-spacing: 3px; }
+  .shadow { position: absolute; left: 50%; bottom: -8px; width: 160px; height: 18px; margin-left: -80px; border-radius: 50%; background: radial-gradient(rgba(27,36,30,.28), rgba(27,36,30,0) 70%); }
+  .cupbox.shake .cup, .cupbox.shake .stick:not(.up) { animation: rattle .5s var(--ease); }
+
+  /* 편 */
+  .teams { display: grid; gap: 12px; }
+  .team { border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+  .team-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .team-head .t { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .dot.c0 { background: var(--red); } .dot.c1 { background: var(--blue); }
+  .team-head .sum { font: 600 26px/1 var(--mono); }
+  .team-head .sum small { font: 400 12px var(--body); color: var(--muted); margin-right: 6px; }
+  .team.win { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
+  .team.win .team-head { background: rgba(31,90,61,.06); }
+  .badge { font-size: 12px; font-weight: 600; color: var(--green); }
+  .prow { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; }
+  .prow + .prow { border-top: 1px solid var(--line); }
+  .order { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font: 600 12px var(--mono); color: var(--paper); flex: none; }
+  .order.c0 { background: var(--red); } .order.c1 { background: var(--blue); }
+  .prow .name { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stepper { display: flex; align-items: center; gap: 4px; }
+  .stepper button { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); display: grid; place-items: center; }
+  .stepper button:hover { background: var(--raised); }
+  .stepper .val { width: 52px; display: grid; place-items: center; }
+  .result-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 14px 16px; border-radius: 12px; background: var(--ink); color: var(--paper); animation: rise .35s var(--ease); }
+  .result-line b { font: 600 16px var(--body); font-variant-numeric: tabular-nums; }
+  .actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-top: 16px; }
+
+  /* 스코어 표기 (고유 표시): 이글 겹동그라미, 버디 동그라미, 보기 네모, 더블 이상 겹네모 */
+  .sc { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 2px; font: 600 17px/1 var(--mono); font-variant-numeric: tabular-nums; border: 1.5px solid transparent; }
+  .sc.small { min-width: 24px; height: 24px; font-size: 13px; }
+  .sc.birdie, .sc.eagle { border-color: var(--red); border-radius: 50%; color: var(--red); }
+  .sc.eagle { box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--red); }
+  .sc.bogey, .sc.double { border-color: var(--ink-2); border-radius: 2px; }
+  .sc.double { box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--ink-2); }
+
+  /* 스코어카드 */
+  .sheet { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--card); -webkit-overflow-scrolling: touch; }
+  table { border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 100%; }
+  th, td { padding: 0; height: 44px; min-width: 38px; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-weight: 500; color: var(--muted); font-size: 12px; }
+  thead th { height: 36px; background: var(--paper); }
+  .stick-col { position: sticky; left: 0; z-index: 1; background: var(--card); text-align: left; padding: 0 12px; min-width: 84px; max-width: 108px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--line); font-weight: 500; color: var(--ink); font-size: 14px; }
+  thead .stick-col { background: var(--paper); color: var(--muted); font-size: 12px; }
+  .hole-btn { width: 100%; height: 100%; border: 0; background: none; font: 600 12px var(--mono); color: var(--ink-2); }
+  .hole-btn.cur { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
+  td.c0 { box-shadow: inset 0 3px 0 var(--red); } td.c1 { box-shadow: inset 0 3px 0 var(--blue); }
+  td.won { background: rgba(31,90,61,.07); }
+  .tot { font: 600 14px var(--mono); color: var(--ink); background: var(--paper); }
+  .par-row td { color: var(--muted); font: 500 12px var(--mono); height: 32px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; color: var(--muted); font-size: 12px; align-items: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* 정산 */
+  .settle { display: grid; gap: 8px; }
+  .srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  .srow .n { font-weight: 600; }
+  .srow .net { font: 600 20px/1.2 var(--mono); text-align: right; }
+  .srow .net.pos { color: var(--pos); } .srow .net.neg { color: var(--neg); }
+  .srow .meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 13px; }
+  .srow .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; }
+  .srow .bar i { display: block; height: 100%; background: var(--green); border-radius: 3px; transition: width .6s var(--ease); }
+  .pot-left { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--raised); }
+  .pot-left b { font: 600 18px var(--mono); }
+
+  .scrim { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(27, 36, 30, .45); }
+  .dialog { width: min(360px, 100%); background: var(--card); border-radius: 18px; padding: 24px; display: grid; gap: 16px; text-align: center; animation: rise .3s var(--ease); }
+  .dialog .row { display: flex; gap: 8px; justify-content: center; }
+  #toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 60; max-width: calc(100% - 32px); transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
+    padding: 12px 16px; border-radius: 12px; background: var(--ink); color: var(--paper); font-size: 14px; transition: transform .3s var(--ease), opacity .3s var(--ease); }
+  #toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+  @keyframes rattle { 20% { transform: translateX(-4px) rotate(-2deg) } 40% { transform: translateX(4px) rotate(2deg) } 60% { transform: translateX(-3px) rotate(-1deg) } 80% { transform: translateX(2px) } }
+  @media (max-width: 420px) { .hole-head h2 { font-size: 34px; } .stepper button { width: 40px; } .stepper .val { width: 44px; } .prow { gap: 8px; padding-left: 12px; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="m22 9-6 6M16 9l6 6"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+</defs></svg>
+
+<div id="app">
+  <header class="top">
+    <a class="icon-btn" href="index.html" aria-label="홈으로"><svg class="i"><use href="#i-back"/></svg></a>
+    <h1>라스베가스</h1>
+    <button class="icon-btn" id="muteBtn" aria-label="소리 끄기"><svg class="i"><use href="#i-vol"/></svg></button>
+  </header>
+
+  <!-- 설정 -->
+  <section id="setup" class="setup">
+    <div class="card">
+      <h2>함께 치는 네 사람</h2>
+      <div class="names" id="names"></div>
+    </div>
+    <div class="card">
+      <h2>판돈</h2>
+      <div class="two">
+        <label class="field money"><span class="label">한 사람이 내는 돈</span><input id="fee" type="text" inputmode="numeric" value="100,000"></label>
+        <label class="field money"><span class="label">이긴 사람 1명이 받는 돈</span><input id="perWin" type="text" inputmode="numeric" value="10,000"></label>
+      </div>
+      <p class="pot-note" id="potNote"></p>
+    </div>
+    <div class="card">
+      <h2>규칙</h2>
+      <label class="toggle"><span>비기면 다음 홀로 이월<small>다음 홀 승자가 두 홀 몫을 받아요</small></span><input type="checkbox" id="carry" checked><span class="sw"></span></label>
+      <label class="toggle"><span>버디가 나오면 두 배<small>이긴 편에 버디가 있으면 받는 돈이 두 배</small></span><input type="checkbox" id="birdie"><span class="sw"></span></label>
+    </div>
+    <div class="card">
+      <h2>홀별 파</h2>
+      <p class="label">전반 9홀</p>
+      <div class="pars" id="parsOut"></div>
+      <p class="label">후반 9홀</p>
+      <div class="pars" id="parsIn"></div>
+      <p class="hint" style="margin-top:12px">숫자를 누르면 3 → 4 → 5 순서로 바뀌어요 · 합계 <b class="num" id="parSum">72</b></p>
+    </div>
+    <button class="btn primary wide" id="startBtn"><svg class="i"><use href="#i-flag"/></svg>라운드 시작</button>
+  </section>
+
+  <!-- 라운드 -->
+  <section id="round" hidden>
+    <div class="status">
+      <div><span class="label">남은 판돈</span><div class="pot" id="potLeft"></div></div>
+      <button class="btn" id="newBtn">새 라운드</button>
+    </div>
+    <div class="holes-bar" id="holesBar" aria-hidden="true"></div>
+    <div class="seg" role="tablist">
+      <button role="tab" data-tab="hole" aria-selected="true">홀</button>
+      <button role="tab" data-tab="card" aria-selected="false">스코어카드</button>
+      <button role="tab" data-tab="settle" aria-selected="false">정산</button>
+    </div>
+    <div id="tab-hole"></div>
+    <div id="tab-card" hidden></div>
+    <div id="tab-settle" hidden></div>
+  </section>
+</div>
+
+<div class="scrim" id="ask" hidden><div class="dialog"><p id="askMsg"></p><div class="row"><button class="btn" id="askNo">취소</button><button class="btn primary" id="askYes">확인</button></div></div></div>
+<div id="toast" role="status"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const icon = (id) => `<svg class="i" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+  const won = (n) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+  const man = (n) => n % 10000 === 0 ? `${(n / 10000).toLocaleString('ko-KR')}만 원` : won(n);
+  const parseWon = (s) => Math.max(0, parseInt(String(s).replace(/\D/g, ''), 10) || 0);
+  document.querySelectorAll('svg.i').forEach((s) => s.setAttribute('aria-hidden', 'true'));
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 저장 불가 */ } },
+  };
+  let toastT;
+  const toast = (m, ms = 3000) => { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); };
+  const ask = (m) => new Promise((res) => { $('askMsg').textContent = m; $('ask').hidden = false; const done = (v) => { $('ask').hidden = true; res(v); }; $('askYes').onclick = () => done(true); $('askNo').onclick = () => done(false); });
+
+  /* ---------- 소리: 나무 막대 부딪히는 소리, 통 흔드는 소리, 승리 종 ---------- */
+  const Sound = {
+    ctx: null, out: null, muted: store.get('lv-muted', false),
+    init() { if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; this.ctx = new AC(); this.out = this.ctx.createGain(); this.out.gain.value = .8; this.out.connect(this.ctx.destination); } if (this.ctx.state === 'suspended') this.ctx.resume(); },
+    ok() { return this.ctx && !this.muted; },
+    tone(f, d, { type = 'sine', vol = .15, when = 0, slide = 0 } = {}) {
+      if (!this.ok()) return; const c = this.ctx, t = c.currentTime + when, o = c.createOscillator(), g = c.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d);
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .005); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      o.connect(g).connect(this.out); o.start(t); o.stop(t + d + .05);
+    },
+    knock(when = 0, vol = .35) {
+      if (!this.ok()) return; const c = this.ctx, t = c.currentTime + when, n = Math.ceil(c.sampleRate * .06), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 6);
+      const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); s.buffer = buf; f.type = 'bandpass'; f.frequency.value = 1400 + Math.random() * 700; f.Q.value = 3; g.gain.value = vol;
+      s.connect(f).connect(g).connect(this.out); s.start(t); this.tone(520 + Math.random() * 180, .07, { type: 'triangle', vol: vol * .25, when });
+    },
+    rattle() { for (let i = 0; i < 9; i++) this.knock(i * .05, .12 + Math.random() * .1); },
+    draw() { this.knock(0, .3); this.tone(700, .18, { vol: .05, slide: 1000 }); },
+    step(up) { this.tone(up ? 620 : 480, .06, { type: 'triangle', vol: .08 }); },
+    win() { [784, 988, 1319].forEach((f, i) => { this.tone(f, .9, { vol: .1, when: i * .12 }); this.tone(f * 2.01, .5, { vol: .03, when: i * .12 }); }); },
+    tie() { this.tone(440, .25, { type: 'triangle', vol: .08 }); this.tone(440, .25, { type: 'triangle', vol: .08, when: .2 }); },
+  };
+  const paintMute = () => { $('muteBtn').innerHTML = icon(Sound.muted ? 'mute' : 'vol'); $('muteBtn').setAttribute('aria-label', Sound.muted ? '소리 켜기' : '소리 끄기'); };
+  $('muteBtn').onclick = () => { Sound.init(); Sound.muted = !Sound.muted; store.set('lv-muted', Sound.muted); paintMute(); Sound.step(true); };
+  paintMute();
+
+  /* ---------- 상태 ---------- */
+  const DEFAULT_PARS = [4, 5, 4, 3, 4, 4, 5, 3, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4];
+  const fresh = () => ({ players: ['', '', '', ''], fee: 100000, perWin: 10000, carry: true, birdie: false, pars: DEFAULT_PARS.slice(), holes: [], cur: 0, started: false });
+  let R = Object.assign(fresh(), store.get('lv-round', {}));
+  const save = () => store.set('lv-round', R);
+  const pname = (i) => (R.players[i] || '').trim() || `${i + 1}번`;
+
+  // 모든 금액은 홀 기록에서 다시 계산한다 (지난 홀을 고쳐도 맞게)
+  function compute() {
+    let pot = R.fee * 4, carry = 0;
+    const got = [0, 0, 0, 0], perHole = [];
+    for (let h = 0; h < 18; h++) {
+      const H = R.holes[h];
+      if (!H || !H.done) { perHole.push(null); continue; }
+      const sum = [0, 1].map((t) => H.teams[t].reduce((a, i) => a + H.scores[i], 0));
+      const winner = sum[0] < sum[1] ? 0 : sum[1] < sum[0] ? 1 : -1;
+      let pay = 0, mult = 1, birdie = false;
+      if (winner >= 0) {
+        birdie = R.birdie && H.teams[winner].some((i) => H.scores[i] < R.pars[h]);
+        mult = (carry + 1) * (birdie ? 2 : 1);
+        pay = Math.min(R.perWin * mult, Math.floor(pot / 2));
+        pot -= pay * 2; H.teams[winner].forEach((i) => { got[i] += pay; });
+        perHole.push({ sum, winner, pay, mult, birdie, carried: carry }); carry = 0;
+      } else { perHole.push({ sum, winner, pay: 0, carried: carry }); if (R.carry) carry++; }
+    }
+    return { pot, carry, got, perHole };
+  }
+
+  /* ---------- 설정 화면 ---------- */
+  function renderSetup() {
+    $('names').innerHTML = R.players.map((n, i) => `<label class="field"><span class="label">${i + 1}번</span><input data-i="${i}" maxlength="8" placeholder="이름" value="${esc(n)}" autocomplete="off"></label>`).join('');
+    $('names').querySelectorAll('input').forEach((el) => { el.oninput = () => { R.players[+el.dataset.i] = el.value; save(); }; });
+    $('fee').value = R.fee.toLocaleString('ko-KR'); $('perWin').value = R.perWin.toLocaleString('ko-KR');
+    $('carry').checked = R.carry; $('birdie').checked = R.birdie;
+    paintPars(); paintPot();
+  }
+  function paintPars() {
+    const cell = (h) => `<button class="par" data-h="${h}" aria-label="${h + 1}번 홀 파 ${R.pars[h]}"><span>${h + 1}</span><b>${R.pars[h]}</b></button>`;
+    $('parsOut').innerHTML = [...Array(9).keys()].map(cell).join('');
+    $('parsIn').innerHTML = [...Array(9).keys()].map((k) => cell(k + 9)).join('');
+    document.querySelectorAll('.par').forEach((b) => { b.onclick = () => { const h = +b.dataset.h; R.pars[h] = R.pars[h] === 5 ? 3 : R.pars[h] + 1; Sound.init(); Sound.step(true); save(); paintPars(); }; });
+    $('parSum').textContent = R.pars.reduce((a, b) => a + b, 0);
+  }
+  function paintPot() {
+    const pot = R.fee * 4, perHole = R.perWin * 2, holes = perHole ? Math.floor(pot / perHole) : 0;
+    $('potNote').innerHTML = `모이는 판돈 <b>${man(pot)}</b> · 한 홀에 <b>${man(perHole)}</b>씩 나가요 ${holes < 18 ? `· <b>${holes}홀</b>이면 바닥나요` : `· 18홀을 다 쳐도 <b>${man(pot - perHole * 18)}</b> 남아요`}`;
+  }
+  const moneyInput = (el, key) => el.addEventListener('input', () => { const v = parseWon(el.value); R[key] = v; el.value = v ? v.toLocaleString('ko-KR') : ''; save(); paintPot(); });
+  moneyInput($('fee'), 'fee'); moneyInput($('perWin'), 'perWin');
+  $('carry').onchange = () => { R.carry = $('carry').checked; save(); };
+  $('birdie').onchange = () => { R.birdie = $('birdie').checked; save(); };
+  $('startBtn').onclick = () => {
+    Sound.init();
+    if (!R.fee || !R.perWin) { toast('판돈과 받는 돈을 넣어주세요'); return; }
+    R.started = true; R.cur = 0; R.holes = []; save(); Sound.draw(); showRound();
+  };
+
+  /* ---------- 라운드 ---------- */
+  let tab = 'hole';
+  function showRound() { $('setup').hidden = true; $('round').hidden = false; setTab('hole'); }
+  function setTab(t) {
+    tab = t;
+    document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
+    ['hole', 'card', 'settle'].forEach((k) => { $('tab-' + k).hidden = k !== t; });
+    render();
+  }
+  document.querySelectorAll('.seg button').forEach((b) => { b.onclick = () => { Sound.step(true); setTab(b.dataset.tab); }; });
+  $('newBtn').onclick = async () => {
+    if (R.holes.some((h) => h && h.done) && !(await ask('지금 라운드를 끝내고 새로 시작할까요? 기록은 지워져요'))) return;
+    const keep = { players: R.players, fee: R.fee, perWin: R.perWin, carry: R.carry, birdie: R.birdie, pars: R.pars };
+    R = Object.assign(fresh(), keep); save(); $('round').hidden = true; $('setup').hidden = false; renderSetup(); scrollTo({ top: 0 });
+  };
+
+  function render() {
+    const C = compute();
+    $('potLeft').innerHTML = `${won(C.pot)}<small>/ ${man(R.fee * 4)}</small>`;
+    $('holesBar').innerHTML = [...Array(18).keys()].map((h) => `<i class="${R.holes[h]?.done ? 'done' : ''} ${h === R.cur ? 'now' : ''}"></i>`).join('');
+    if (tab === 'hole') renderHole(C); else if (tab === 'card') renderCard(C); else renderSettle(C);
+  }
+
+  const mark = (s, par, small) => { const d = s - par; const cls = d <= -2 ? 'eagle' : d === -1 ? 'birdie' : d === 1 ? 'bogey' : d >= 2 ? 'double' : ''; return `<span class="sc ${cls} ${small ? 'small' : ''}">${s}</span>`; };
+
+  function renderHole(C) {
+    const h = R.cur, H = R.holes[h], par = R.pars[h], el = $('tab-hole');
+    const carryNow = H?.done ? (C.perHole[h]?.carried || 0) : C.carry;
+    const stake = Math.min(R.perWin * (carryNow + 1), Math.floor(C.pot / 2));
+    let html = `<div class="hole-head"><h2>${h + 1}번 홀<small>파 ${par}</small></h2>
+      <div class="stake">이기면 한 사람당<b>${man(H?.done && C.perHole[h]?.winner >= 0 ? C.perHole[h].pay : stake)}</b>${carryNow ? `<span class="carry">이월 ${carryNow}홀</span>` : ''}</div></div>`;
+    if (!H || !H.teams) {
+      html += `<div class="card draw">
+        <div class="cupbox" id="cupbox">${[0, 1, 2, 3].map((k) => `<div class="stick" data-k="${k}" style="transform: translateX(${(k - 1.5) * 20}px) rotate(${(k - 1.5) * 6}deg)"><span class="who"></span><span class="tip"></span></div>`).join('')}
+          <div class="cup"><span>LAS VEGAS</span></div><div class="shadow"></div></div>
+        <p class="hint">같은 색 막대를 뽑은 두 사람이 한 편, 막대 숫자는 티샷 순서예요</p>
+        <button class="btn primary wide" id="drawBtn">막대 뽑기</button></div>`;
+      el.innerHTML = html; $('drawBtn').onclick = drawSticks; return;
+    }
+    const res = C.perHole[h];
+    html += `<div class="teams">${[0, 1].map((t) => {
+      const sum = H.teams[t].reduce((a, i) => a + H.scores[i], 0), w = res && res.winner === t;
+      return `<div class="team ${w ? 'win' : ''}"><div class="team-head"><span class="t"><i class="dot c${t}"></i>${t ? '파랑' : '빨강'} 편 ${w ? `<span class="badge">승리</span>` : ''}</span>
+        <span class="sum num"><small>합계</small>${sum}</span></div>
+        ${H.teams[t].map((i) => `<div class="prow"><span class="order c${t}">${H.sticks[i].n}</span><span class="name">${esc(pname(i))}</span>
+          <div class="stepper"><button data-i="${i}" data-d="-1" aria-label="${esc(pname(i))} 한 타 줄이기">${icon('minus')}</button><span class="val">${mark(H.scores[i], par)}</span><button data-i="${i}" data-d="1" aria-label="${esc(pname(i))} 한 타 더하기">${icon('plus')}</button></div></div>`).join('')}
+      </div>`;
+    }).join('')}</div>`;
+    if (res) {
+      html += `<div class="result-line">${res.winner < 0 ? `<span>비김${R.carry ? ' · 다음 홀로 이월' : ''}</span>` : `<span>${res.winner ? '파랑' : '빨강'} 편 승리${res.birdie ? ' · 버디 두 배' : ''}</span><b>+${man(res.pay)} × 2</b>`}</div>`;
+    }
+    html += `<div class="actions">
+      ${H.done ? `<button class="btn" id="editBtn">${icon('redo')}다시 입력</button>` : `<button class="btn" id="redrawBtn">${icon('redo')}다시 뽑기</button>`}
+      ${H.done ? (h < 17 ? `<button class="btn primary" id="nextBtn">${h + 2}번 홀로 ${icon('arrow')}</button>` : `<button class="btn primary" id="toSettle">정산 보기 ${icon('arrow')}</button>`) : `<button class="btn primary" id="doneBtn">${icon('flag')}${h + 1}번 홀 확정</button>`}
+    </div>`;
+    el.innerHTML = html;
+    if (!H.done) el.querySelectorAll('.stepper button').forEach((b) => { b.onclick = () => { const i = +b.dataset.i, d = +b.dataset.d; H.scores[i] = Math.max(1, Math.min(15, H.scores[i] + d)); Sound.step(d > 0); save(); renderHole(compute()); }; });
+    else el.querySelectorAll('.stepper button').forEach((b) => { b.disabled = true; });
+    $('redrawBtn') && ($('redrawBtn').onclick = () => { delete R.holes[h]; save(); render(); });
+    $('editBtn') && ($('editBtn').onclick = () => { H.done = false; save(); render(); });
+    $('doneBtn') && ($('doneBtn').onclick = () => {
+      H.done = true; save(); const r = compute().perHole[h];
+      if (r.winner < 0) { Sound.tie(); } else Sound.win();
+      render();
+    });
+    $('nextBtn') && ($('nextBtn').onclick = () => { R.cur = h + 1; save(); Sound.step(true); render(); scrollTo({ top: 0, behavior: 'smooth' }); });
+    $('toSettle') && ($('toSettle').onclick = () => setTab('settle'));
+  }
+
+  async function drawSticks() {
+    Sound.init(); const btn = $('drawBtn'); btn.disabled = true;
+    const h = R.cur, par = R.pars[h];
+    // 빨강 둘, 파랑 둘을 섞고, 막대 숫자(티샷 순서)도 섞는다
+    const colors = [0, 0, 1, 1].sort(() => Math.random() - .5), nums = [1, 2, 3, 4].sort(() => Math.random() - .5);
+    const sticks = [0, 1, 2, 3].map((i) => ({ c: colors[i], n: nums[i] }));
+    const box = $('cupbox'); box.classList.add('shake'); Sound.rattle(); await wait(560); box.classList.remove('shake');
+    const els = [...box.querySelectorAll('.stick')];
+    for (let i = 0; i < 4; i++) {
+      const s = els[i], st = sticks[i];
+      s.querySelector('.tip').className = `tip c${st.c}`; s.querySelector('.tip').textContent = st.n;
+      s.querySelector('.who').textContent = pname(i);
+      s.classList.add('up'); s.style.transform = `translateX(${(i - 1.5) * 44}px) translateY(-84px) rotate(${(i - 1.5) * 4}deg)`;
+      Sound.draw(); await wait(520);
+    }
+    await wait(700);
+    const teams = [[0, 1, 2, 3].filter((i) => sticks[i].c === 0), [0, 1, 2, 3].filter((i) => sticks[i].c === 1)].map((t) => t.sort((a, b) => sticks[a].n - sticks[b].n));
+    R.holes[h] = { teams, sticks, scores: [par, par, par, par], done: false }; save(); render();
+  }
+
+  function renderCard(C) {
+    const cols = [...Array(18).keys()], tot = (i) => cols.reduce((a, h) => a + (R.holes[h]?.done ? R.holes[h].scores[i] : 0), 0);
+    const parTot = R.pars.reduce((a, b) => a + b, 0);
+    let html = `<div class="sheet"><table><thead><tr><th class="stick-col">홀</th>${cols.map((h) => `<th><button class="hole-btn ${h === R.cur ? 'cur' : ''}" data-h="${h}" aria-label="${h + 1}번 홀로 가기">${h + 1}</button></th>`).join('')}<th>합</th></tr></thead><tbody>
+      <tr class="par-row"><td class="stick-col" style="font-weight:400;color:var(--muted)">파</td>${cols.map((h) => `<td>${R.pars[h]}</td>`).join('')}<td class="tot">${parTot}</td></tr>`;
+    for (let i = 0; i < 4; i++) {
+      html += `<tr><td class="stick-col">${esc(pname(i))}</td>${cols.map((h) => {
+        const H = R.holes[h]; if (!H?.done) return '<td></td>';
+        const t = H.teams[0].includes(i) ? 0 : 1, r = C.perHole[h];
+        return `<td class="c${t} ${r && r.winner === t ? 'won' : ''}">${mark(H.scores[i], R.pars[h], true)}</td>`;
+      }).join('')}<td class="tot">${tot(i) || ''}</td></tr>`;
+    }
+    html += `<tr><td class="stick-col" style="font-weight:400;color:var(--muted)">홀 상금</td>${cols.map((h) => { const r = C.perHole[h]; return `<td class="num" style="font-size:11px;color:var(--muted)">${!r ? '' : r.winner < 0 ? '이월' : (r.pay / 10000).toLocaleString('ko-KR') + '만'}</td>`; }).join('')}<td></td></tr>`;
+    html += `</tbody></table></div><div class="legend"><span>${mark(2, 4, true)} 이글</span><span>${mark(3, 4, true)} 버디</span><span>${mark(5, 4, true)} 보기</span><span>${mark(6, 4, true)} 더블 이상</span>
+      <span><i class="dot c0"></i>빨강 편</span><span><i class="dot c1"></i>파랑 편</span><span>홀 번호를 누르면 그 홀로 가요</span></div>`;
+    $('tab-card').innerHTML = html;
+    $('tab-card').querySelectorAll('.hole-btn').forEach((b) => { b.onclick = () => { const h = +b.dataset.h; if (h > 0 && !R.holes[h - 1]?.done && !R.holes[h]) { toast('앞 홀을 먼저 끝내주세요'); return; } R.cur = h; save(); setTab('hole'); }; });
+  }
+
+  function renderSettle(C) {
+    const doneN = R.holes.filter((h) => h && h.done).length, refund = Math.floor(C.pot / 4);
+    const rows = [0, 1, 2, 3].map((i) => ({ i, got: C.got[i], net: C.got[i] + refund - R.fee })).sort((a, b) => b.net - a.net);
+    const maxGot = Math.max(1, ...rows.map((r) => r.got));
+    let html = `<p class="hint" style="margin-bottom:12px">${doneN}홀까지 · 남은 판돈은 네 사람에게 똑같이 돌려준다고 계산했어요</p><div class="settle">`;
+    html += rows.map((r) => `<div class="srow"><span class="n">${esc(pname(r.i))}</span><span class="net ${r.net > 0 ? 'pos' : r.net < 0 ? 'neg' : ''}">${r.net > 0 ? '+' : ''}${won(r.net)}</span>
+      <div class="bar"><i style="width:${(r.got / maxGot) * 100}%"></i></div>
+      <div class="meta"><span>받은 상금 <b class="num">${won(r.got)}</b></span><span>돌려받는 판돈 <b class="num">${won(refund)}</b></span><span>낸 돈 <b class="num">${won(R.fee)}</b></span></div></div>`).join('');
+    html += `<div class="pot-left"><span>남은 판돈${C.carry ? ` · 이월 중 ${C.carry}홀` : ''}</span><b>${won(C.pot)}</b></div></div>
+      <div class="actions" style="grid-template-columns:1fr"><button class="btn" id="copyBtn">${icon('copy')}정산 내용 복사</button></div>
+      <p class="hint" style="margin-top:12px">이 앱은 점수와 금액을 기록하고 계산만 해요. 실제 돈은 주고받지 않아요.</p>`;
+    $('tab-settle').innerHTML = html;
+    $('copyBtn').onclick = async () => {
+      const text = `라스베가스 정산 (${doneN}홀)\n` + rows.map((r) => `${pname(r.i)}  ${r.net > 0 ? '+' : ''}${won(r.net)}  (상금 ${won(r.got)})`).join('\n') + `\n남은 판돈 ${won(C.pot)}`;
+      try { await navigator.clipboard.writeText(text); toast('정산 내용을 복사했어요'); } catch (e) { toast('복사하지 못했어요'); }
+    };
+  }
+
+  // 시작
+  renderSetup();
+  if (R.started) { showRound(); }
+  window.__lv = { get R() { return R; }, compute };
+})();
+</script>
+</body>
+</html>
