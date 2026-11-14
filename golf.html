@@ -7,7 +7,7 @@
 <title>라스베가스</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* 레이아웃: 클럽하우스의 짙은 초록 위에 크림색 글씨. 색은 홀 지도(페어웨이·그린)와 편 색(빨강·파랑), 황동 강조에만 쓴다.
      글꼴은 하나, 숫자는 고정폭 숫자 */
@@ -131,6 +131,7 @@
   .flatcup .who { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); white-space: nowrap; padding: 2px 8px; border-radius: 6px; background: var(--ink); color: var(--on-ink); font-size: 12px; opacity: 0; transition: opacity .3s var(--ease) .3s; }
   .flatcup .stick.up .who { opacity: 1; }
   .flatcup .body { position: absolute; left: 50%; bottom: 10px; width: 120px; height: 110px; margin-left: -60px; border-radius: 8px 8px 24px 24px; background: linear-gradient(90deg, #0f2a1d, #2a5640 45%, #133222); border-top: 4px solid var(--brass); }
+  .flatcup .body span { position: absolute; left: 0; right: 0; top: 34px; text-align: center; font: 700 22px 'Gowun Batang', serif; color: var(--brass); letter-spacing: 2px; }
   .tip.c0 { background: var(--red); } .tip.c1 { background: var(--blue); } .tip.cj { background: var(--brass); }
 
   /* 편 */
@@ -424,6 +425,7 @@
         const shadow = new T.Mesh(new T.PlaneGeometry(1.8, 1.8), new T.MeshBasicMaterial({ map: new T.CanvasTexture(shc), transparent: true, depthWrite: false }));
         shadow.rotation.x = -Math.PI / 2; shadow.position.y = .001; sc.add(shadow);
         cup.position.y = -.6; shadow.position.y = -.598;
+        this.addEmblem(cup);
         // 나무 결 텍스처
         const wc = document.createElement('canvas'); wc.width = 64; wc.height = 512; const w = wc.getContext('2d');
         const wg = w.createLinearGradient(0, 0, 64, 0); wg.addColorStop(0, '#b48a55'); wg.addColorStop(.5, '#e2c48f'); wg.addColorStop(1, '#b48a55'); w.fillStyle = wg; w.fillRect(0, 0, 64, 512);
@@ -433,6 +435,54 @@
         this.reset();
         this.ok = true; return true;
       } catch (e) { return false; }
+    },
+    // 컵 앞면의 '나골총' 황동 엠블럼: 그림(색)과 높낮이(범프)를 같은 모양으로 그려 돋을새김처럼 보이게
+    async addEmblem(cup) {
+      const T = window.THREE;
+      try { await document.fonts.load('700 200px "Gowun Batang"'); } catch (e) { /* 기본 글꼴로 */ }
+      const W = 1088, H = 1024, cx = W / 2, cy = H / 2;
+      const draw = (x, ink, bump) => {
+        x.save(); x.strokeStyle = ink; x.fillStyle = ink; x.lineCap = 'round'; x.lineJoin = 'round';
+        x.lineWidth = 40; x.beginPath(); x.arc(cx, cy, 470, 0, Math.PI * 2); x.stroke();
+        x.lineWidth = 12; x.beginPath(); x.arc(cx, cy, 412, 0, Math.PI * 2); x.stroke();
+        // 위쪽 깃발
+        x.lineWidth = 16; x.beginPath(); x.moveTo(cx - 8, cy - 350); x.lineTo(cx - 8, cy - 196); x.stroke();
+        x.beginPath(); x.moveTo(cx - 2, cy - 352); x.lineTo(cx + 96, cy - 316); x.lineTo(cx - 2, cy - 280); x.closePath(); x.fill();
+        x.beginPath(); x.ellipse(cx - 8, cy - 192, 58, 13, 0, 0, Math.PI * 2); x.lineWidth = 10; x.stroke();
+        // 이름
+        x.font = '700 250px "Gowun Batang", "Noto Serif KR", serif'; x.lineWidth = 10; x.textAlign = 'center'; x.textBaseline = 'middle';
+        if (x.letterSpacing !== undefined) x.letterSpacing = '12px';
+        x.fillText('나골총', cx + 6, cy + 28); x.strokeText('나골총', cx + 6, cy + 28);
+        // 아래쪽 월계수
+        for (const side of [-1, 1]) {
+          x.lineWidth = 14; x.beginPath(); x.arc(cx + side * 30, cy + 150, 230, side < 0 ? Math.PI * .58 : Math.PI * .1, side < 0 ? Math.PI * .9 : Math.PI * .42); x.stroke();
+          for (let k = 0; k < 6; k++) {
+            const a = side < 0 ? Math.PI * (.6 + k * .055) : Math.PI * (.4 - k * .055), r = 230;
+            const lx = cx + side * 30 + Math.cos(a) * r, ly = cy + 150 + Math.sin(a) * r;
+            x.save(); x.translate(lx, ly); x.rotate(a + (side < 0 ? -1 : 1) * .9); x.beginPath(); x.ellipse(0, -20, 15, 32, 0, 0, Math.PI * 2); x.fill(); x.restore();
+          }
+        }
+        // 별 셋
+        [-70, 0, 70].forEach((dx, k) => { const sx = cx + dx, sy = cy + 300 + (k === 1 ? 14 : 0), R = k === 1 ? 28 : 21; x.beginPath();
+          for (let q = 0; q < 10; q++) { const rr = q % 2 ? R * .42 : R, a = q / 10 * Math.PI * 2 - Math.PI / 2; x[q ? 'lineTo' : 'moveTo'](sx + Math.cos(a) * rr, sy + Math.sin(a) * rr); } x.closePath(); x.fill(); });
+        x.restore();
+        void bump;
+      };
+      const col = document.createElement('canvas'); col.width = W; col.height = H; const c = col.getContext('2d');
+      c.save(); c.translate(5, 7); draw(c, 'rgba(0,0,0,.55)'); c.restore();                       // 그림자
+      const gold = c.createLinearGradient(0, cy - 440, 0, cy + 440);
+      gold.addColorStop(0, '#fff0bd'); gold.addColorStop(.3, '#d9b46a'); gold.addColorStop(.55, '#9c7630'); gold.addColorStop(.8, '#e5c77f'); gold.addColorStop(1, '#8a6626');
+      draw(c, gold);
+      c.save(); c.globalCompositeOperation = 'source-atop'; c.translate(-2, -3); draw(c, 'rgba(255,248,220,.35)'); c.restore(); // 위쪽 모서리 빛
+      const bmp = document.createElement('canvas'); bmp.width = W; bmp.height = H; const b = bmp.getContext('2d');
+      b.fillStyle = '#000'; b.fillRect(0, 0, W, H); b.filter = 'blur(3px)'; draw(b, '#fff', true);
+      const map = new T.CanvasTexture(col); map.encoding = T.sRGBEncoding; map.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+      const mat = new T.MeshStandardMaterial({ map, bumpMap: new T.CanvasTexture(bmp), bumpScale: .03, metalness: .85, roughness: .3, envMapIntensity: 1.6, transparent: true, alphaTest: .04 });
+      // 컵 옆면 곡률을 그대로 따르는 조각 (컵 반지름보다 아주 조금 바깥)
+      const y0 = .2, y1 = .88, rAt = (y) => .47 + (.5 - .47) * ((y - .1) / .86) + .004;
+      const pts = []; for (let k = 0; k <= 8; k++) { const y = y0 + (y1 - y0) * k / 8; pts.push(new T.Vector2(rAt(y), y)); }
+      const span = 1.42, geo = new T.LatheGeometry(pts, 64, -span / 2, span);
+      const mesh = new T.Mesh(geo, mat); mesh.renderOrder = 1; cup.add(mesh); this.emblem = mesh; this.render();
     },
     tipTexture(color, label) {
       const T = window.THREE, c = document.createElement('canvas'); c.width = 256; c.height = 96; const x = c.getContext('2d');
@@ -546,7 +596,7 @@
   function renderHole(C) {
     const h = R.cur, H = R.holes[h], par = R.pars[h], el = $('tab-hole');
     if (!H || !H.teams) {
-      el.innerHTML = `<div class="stage"><div id="cupMount">${Cup.ok ? '' : `<div class="flatcup" id="flatcup">${[0, 1, 2, 3, 4].map((k) => `<div class="stick" style="transform: translateX(${(k - 2) * 15}px) rotate(${(k - 2) * 6}deg)"><span class="who"></span><span class="tip"></span></div>`).join('')}<div class="body"></div></div>`}</div>
+      el.innerHTML = `<div class="stage"><div id="cupMount">${Cup.ok ? '' : `<div class="flatcup" id="flatcup">${[0, 1, 2, 3, 4].map((k) => `<div class="stick" style="transform: translateX(${(k - 2) * 15}px) rotate(${(k - 2) * 6}deg)"><span class="who"></span><span class="tip"></span></div>`).join('')}<div class="body"><span>나골총</span></div></div>`}</div>
         <div class="foot"><p class="hint">빨강 둘 · 파랑 둘 · 조커 하나 중에 한 사람씩 뽑아요. 막대 숫자는 티샷 순서</p><button class="btn primary wide" id="drawBtn">막대 뽑기</button></div></div>`;
       if (Cup.ok) { if (!Cup.busy) Cup.reset(); Cup.mount($('cupMount')); }
       $('drawBtn').onclick = drawSticks; return;
