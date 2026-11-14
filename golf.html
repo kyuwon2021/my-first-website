@@ -118,6 +118,9 @@
   .stick .tip { position: absolute; left: 0; right: 0; bottom: 0; height: 46px; border-radius: 0 0 3px 3px; display: grid; place-items: end center; padding-bottom: 6px; color: #fff; font: 600 11px/1 var(--mono); }
   .stick .tip.c0 { background: linear-gradient(90deg, #a52f25, #c94539 50%, #a52f25); }
   .stick .tip.c1 { background: linear-gradient(90deg, #234f92, #3367b6 50%, #234f92); }
+  .stick .tip.cj { background: linear-gradient(90deg, #8f6f17, #c49a2e 50%, #8f6f17); }
+  .joker { flex: none; padding: 1px 6px; border-radius: 6px; border: 1px solid #c49a2e; color: #8f6f17; font-size: 12px; font-weight: 600; }
+  td sup.j { color: #8f6f17; font: 600 9px var(--mono); margin-left: 1px; }
   .stick .who { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); white-space: nowrap; padding: 2px 8px; border-radius: 6px; background: var(--ink); color: var(--paper); font-size: 12px; opacity: 0; transition: opacity .3s var(--ease) .4s; }
   .stick.up .who { opacity: 1; }
   .cup { position: absolute; left: 50%; bottom: 0; width: 132px; height: 116px; margin-left: -66px; z-index: 2;
@@ -411,9 +414,9 @@
       <div class="stake">이기면 한 사람당<b>${man(H?.done && C.perHole[h]?.winner >= 0 ? C.perHole[h].pay : stake)}</b>${carryNow ? `<span class="carry">이월 ${carryNow}홀</span>` : ''}</div></div>`;
     if (!H || !H.teams) {
       html += `<div class="card draw">
-        <div class="cupbox" id="cupbox">${[0, 1, 2, 3].map((k) => `<div class="stick" data-k="${k}" style="transform: translateX(${(k - 1.5) * 20}px) rotate(${(k - 1.5) * 6}deg)"><span class="who"></span><span class="tip"></span></div>`).join('')}
+        <div class="cupbox" id="cupbox">${[0, 1, 2, 3, 4].map((k) => `<div class="stick" data-k="${k}" style="transform: translateX(${(k - 2) * 17}px) rotate(${(k - 2) * 6}deg)"><span class="who"></span><span class="tip"></span></div>`).join('')}
           <div class="cup"><span>LAS VEGAS</span></div><div class="shadow"></div></div>
-        <p class="hint">같은 색 막대를 뽑은 두 사람이 한 편, 막대 숫자는 티샷 순서예요</p>
+        <p class="hint">빨강 둘, 파랑 둘, 조커 하나 중에 하나씩 뽑아요. 같은 색끼리 한 편, 조커는 짝 없는 사람과 한 편이에요. 막대 숫자는 티샷 순서예요</p>
         <button class="btn primary wide" id="drawBtn">막대 뽑기</button></div>`;
       el.innerHTML = html; $('drawBtn').onclick = drawSticks; return;
     }
@@ -422,7 +425,7 @@
       const sum = H.teams[t].reduce((a, i) => a + H.scores[i], 0), w = res && res.winner === t;
       return `<div class="team ${w ? 'win' : ''}"><div class="team-head"><span class="t"><i class="dot c${t}"></i>${t ? '파랑' : '빨강'} 편 ${w ? `<span class="badge">승리</span>` : ''}</span>
         <span class="sum num"><small>합계</small>${sum}</span></div>
-        ${H.teams[t].map((i) => `<div class="prow"><span class="order c${t}">${H.sticks[i].n}</span><span class="name">${esc(pname(i))}</span>
+        ${H.teams[t].map((i) => `<div class="prow"><span class="order c${t}">${H.sticks[i].n}</span><span class="name">${esc(pname(i))}</span>${H.sticks[i].j ? '<span class="joker">조커</span>' : ''}
           <div class="stepper"><button data-i="${i}" data-d="-1" aria-label="${esc(pname(i))} 한 타 줄이기">${icon('minus')}</button><span class="val">${mark(H.scores[i], par)}</span><button data-i="${i}" data-d="1" aria-label="${esc(pname(i))} 한 타 더하기">${icon('plus')}</button></div></div>`).join('')}
       </div>`;
     }).join('')}</div>`;
@@ -450,14 +453,17 @@
   async function drawSticks() {
     Sound.init(); const btn = $('drawBtn'); btn.disabled = true;
     const h = R.cur, par = R.pars[h];
-    // 빨강 둘, 파랑 둘을 섞고, 막대 숫자(티샷 순서)도 섞는다
-    const colors = [0, 0, 1, 1].sort(() => Math.random() - .5), nums = [1, 2, 3, 4].sort(() => Math.random() - .5);
-    const sticks = [0, 1, 2, 3].map((i) => ({ c: colors[i], n: nums[i] }));
+    // 통에는 빨강 둘, 파랑 둘, 조커 하나. 네 사람이 하나씩 뽑고 하나는 통에 남는다
+    const bag = [0, 0, 1, 1, 'J'].sort(() => Math.random() - .5), drawn = bag.slice(0, 4), nums = [1, 2, 3, 4].sort(() => Math.random() - .5);
+    // 조커는 짝 없는 색(한 사람만 뽑은 색)의 편이 된다
+    const lone = [0, 1].find((c) => drawn.filter((x) => x === c).length === 1);
+    const sticks = [0, 1, 2, 3].map((i) => (drawn[i] === 'J' ? { c: lone, n: nums[i], j: true } : { c: drawn[i], n: nums[i] }));
+    const pick = [0, 1, 2, 3, 4].sort(() => Math.random() - .5); // 통 속 어느 막대를 집는지
     const box = $('cupbox'); box.classList.add('shake'); Sound.rattle(); await wait(560); box.classList.remove('shake');
     const els = [...box.querySelectorAll('.stick')];
     for (let i = 0; i < 4; i++) {
-      const s = els[i], st = sticks[i];
-      s.querySelector('.tip').className = `tip c${st.c}`; s.querySelector('.tip').textContent = st.n;
+      const s = els[pick[i]], st = sticks[i];
+      s.querySelector('.tip').className = `tip ${st.j ? 'cj' : 'c' + st.c}`; s.querySelector('.tip').textContent = st.j ? 'J' + st.n : st.n;
       s.querySelector('.who').textContent = pname(i);
       s.classList.add('up'); s.style.transform = `translateX(${(i - 1.5) * 44}px) translateY(-84px) rotate(${(i - 1.5) * 4}deg)`;
       Sound.draw(); await wait(520);
@@ -476,12 +482,12 @@
       html += `<tr><td class="stick-col">${esc(pname(i))}</td>${cols.map((h) => {
         const H = R.holes[h]; if (!H?.done) return '<td></td>';
         const t = H.teams[0].includes(i) ? 0 : 1, r = C.perHole[h];
-        return `<td class="c${t} ${r && r.winner === t ? 'won' : ''}">${mark(H.scores[i], R.pars[h], true)}</td>`;
+        return `<td class="c${t} ${r && r.winner === t ? 'won' : ''}">${mark(H.scores[i], R.pars[h], true)}${H.sticks[i].j ? '<sup class="j">J</sup>' : ''}</td>`;
       }).join('')}<td class="tot">${tot(i) || ''}</td></tr>`;
     }
     html += `<tr><td class="stick-col" style="font-weight:400;color:var(--muted)">홀 상금</td>${cols.map((h) => { const r = C.perHole[h]; return `<td class="num" style="font-size:11px;color:var(--muted)">${!r ? '' : r.winner < 0 ? '이월' : (r.pay / 10000).toLocaleString('ko-KR') + '만'}</td>`; }).join('')}<td></td></tr>`;
     html += `</tbody></table></div><div class="legend"><span>${mark(2, 4, true)} 이글</span><span>${mark(3, 4, true)} 버디</span><span>${mark(5, 4, true)} 보기</span><span>${mark(6, 4, true)} 더블 이상</span>
-      <span><i class="dot c0"></i>빨강 편</span><span><i class="dot c1"></i>파랑 편</span><span>홀 번호를 누르면 그 홀로 가요</span></div>`;
+      <span><i class="dot c0"></i>빨강 편</span><span><i class="dot c1"></i>파랑 편</span><span><sup class="j" style="font-size:11px;color:#8f6f17">J</sup> 조커</span><span>홀 번호를 누르면 그 홀로 가요</span></div>`;
     $('tab-card').innerHTML = html;
     $('tab-card').querySelectorAll('.hole-btn').forEach((b) => { b.onclick = () => { const h = +b.dataset.h; if (h > 0 && !R.holes[h - 1]?.done && !R.holes[h]) { toast('앞 홀을 먼저 끝내주세요'); return; } R.cur = h; save(); setTab('hole'); }; });
   }
